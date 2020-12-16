@@ -4,7 +4,6 @@
 #include <stdexcept> // runtime_error
 #include <string> // to_string
 
-#include <nlohmann/detail/input/position_t.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
 
 namespace nlohmann
@@ -68,100 +67,6 @@ class exception : public std::exception
   private:
     /// an exception object as storage for error messages
     std::runtime_error m;
-};
-
-/*!
-@brief exception indicating a parse error
-
-This exception is thrown by the library when a parse error occurs. Parse errors
-can occur during the deserialization of JSON text, CBOR, MessagePack, as well
-as when using JSON Patch.
-
-Member @a byte holds the byte index of the last read character in the input
-file.
-
-Exceptions have ids 1xx.
-
-name / id                      | example message | description
------------------------------- | --------------- | -------------------------
-json.exception.parse_error.101 | parse error at 2: unexpected end of input; expected string literal | This error indicates a syntax error while deserializing a JSON text. The error message describes that an unexpected token (character) was encountered, and the member @a byte indicates the error position.
-json.exception.parse_error.102 | parse error at 14: missing or wrong low surrogate | JSON uses the `\uxxxx` format to describe Unicode characters. Code points above above 0xFFFF are split into two `\uxxxx` entries ("surrogate pairs"). This error indicates that the surrogate pair is incomplete or contains an invalid code point.
-json.exception.parse_error.103 | parse error: code points above 0x10FFFF are invalid | Unicode supports code points up to 0x10FFFF. Code points above 0x10FFFF are invalid.
-json.exception.parse_error.104 | parse error: JSON patch must be an array of objects | [RFC 6902](https://tools.ietf.org/html/rfc6902) requires a JSON Patch document to be a JSON document that represents an array of objects.
-json.exception.parse_error.105 | parse error: operation must have string member 'op' | An operation of a JSON Patch document must contain exactly one "op" member, whose value indicates the operation to perform. Its value must be one of "add", "remove", "replace", "move", "copy", or "test"; other values are errors.
-json.exception.parse_error.106 | parse error: array index '01' must not begin with '0' | An array index in a JSON Pointer ([RFC 6901](https://tools.ietf.org/html/rfc6901)) may be `0` or any number without a leading `0`.
-json.exception.parse_error.107 | parse error: JSON pointer must be empty or begin with '/' - was: 'foo' | A JSON Pointer must be a Unicode string containing a sequence of zero or more reference tokens, each prefixed by a `/` character.
-json.exception.parse_error.108 | parse error: escape character '~' must be followed with '0' or '1' | In a JSON Pointer, only `~0` and `~1` are valid escape sequences.
-json.exception.parse_error.109 | parse error: array index 'one' is not a number | A JSON Pointer array index must be a number.
-json.exception.parse_error.110 | parse error at 1: cannot read 2 bytes from vector | When parsing CBOR or MessagePack, the byte vector ends before the complete value has been read.
-json.exception.parse_error.112 | parse error at 1: error reading CBOR; last byte: 0xF8 | Not all types of CBOR or MessagePack are supported. This exception occurs if an unsupported byte was read.
-json.exception.parse_error.113 | parse error at 2: expected a CBOR string; last byte: 0x98 | While parsing a map key, a value that is not a string has been read.
-json.exception.parse_error.114 | parse error: Unsupported BSON record type 0x0F | The parsing of the corresponding BSON record type is not implemented (yet).
-json.exception.parse_error.115 | parse error at byte 5: syntax error while parsing UBJSON high-precision number: invalid number text: 1A | A UBJSON high-precision number could not be parsed.
-
-@note For an input with n bytes, 1 is the index of the first character and n+1
-      is the index of the terminating null byte or the end of file. This also
-      holds true when reading a byte vector (CBOR or MessagePack).
-
-@liveexample{The following code shows how a `parse_error` exception can be
-caught.,parse_error}
-
-@sa - @ref exception for the base class of the library exceptions
-@sa - @ref invalid_iterator for exceptions indicating errors with iterators
-@sa - @ref type_error for exceptions indicating executing a member function with
-                    a wrong type
-@sa - @ref out_of_range for exceptions indicating access out of the defined range
-@sa - @ref other_error for exceptions indicating other library errors
-
-@since version 3.0.0
-*/
-class parse_error : public exception
-{
-  public:
-    /*!
-    @brief create a parse error exception
-    @param[in] id_       the id of the exception
-    @param[in] pos       the position where the error occurred (or with
-                         chars_read_total=0 if the position cannot be
-                         determined)
-    @param[in] what_arg  the explanatory string
-    @return parse_error object
-    */
-    static parse_error create(int id_, const position_t& pos, const std::string& what_arg)
-    {
-        std::string w = exception::name("parse_error", id_) + "parse error" +
-                        position_string(pos) + ": " + what_arg;
-        return parse_error(id_, pos.chars_read_total, w.c_str());
-    }
-
-    static parse_error create(int id_, std::size_t byte_, const std::string& what_arg)
-    {
-        std::string w = exception::name("parse_error", id_) + "parse error" +
-                        (byte_ != 0 ? (" at byte " + std::to_string(byte_)) : "") +
-                        ": " + what_arg;
-        return parse_error(id_, byte_, w.c_str());
-    }
-
-    /*!
-    @brief byte index of the parse error
-
-    The byte index of the last read character in the input file.
-
-    @note For an input with n bytes, 1 is the index of the first character and
-          n+1 is the index of the terminating null byte or the end of file.
-          This also holds true when reading a byte vector (CBOR or MessagePack).
-    */
-    const std::size_t byte;
-
-  private:
-    parse_error(int id_, std::size_t byte_, const char* what_arg)
-        : exception(id_, what_arg), byte(byte_) {}
-
-    static std::string position_string(const position_t& pos)
-    {
-        return " at line " + std::to_string(pos.lines_read + 1) +
-               ", column " + std::to_string(pos.chars_read_current_line);
-    }
 };
 
 /*!

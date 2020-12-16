@@ -52,9 +52,6 @@ SOFTWARE.
 #include <nlohmann/detail/conversions/to_json.hpp>
 #include <nlohmann/detail/exceptions.hpp>
 #include <nlohmann/detail/hash.hpp>
-#include <nlohmann/detail/input/input_adapters.hpp>
-#include <nlohmann/detail/input/lexer.hpp>
-#include <nlohmann/detail/input/parser.hpp>
 #include <nlohmann/detail/json_pointer.hpp>
 #include <nlohmann/detail/json_ref.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
@@ -165,27 +162,10 @@ class basic_json
     template<detail::value_t> friend struct detail::external_constructor;
     friend ::nlohmann::json_pointer<basic_json>;
 
-    template<typename BasicJsonType, typename InputType>
-    friend class ::nlohmann::detail::parser;
     friend ::nlohmann::detail::serializer<basic_json>;
 
     /// workaround type for MSVC
     using basic_json_t = NLOHMANN_BASIC_JSON_TPL;
-
-    // convenience aliases for types residing in namespace detail;
-    using lexer = ::nlohmann::detail::lexer_base<basic_json>;
-
-    template<typename InputAdapterType>
-    static ::nlohmann::detail::parser<basic_json, InputAdapterType> parser(
-        InputAdapterType adapter,
-        detail::parser_callback_t<basic_json>cb = nullptr,
-        const bool allow_exceptions = true,
-        const bool ignore_comments = false
-    )
-    {
-        return ::nlohmann::detail::parser<basic_json, InputAdapterType>(std::move(adapter),
-                std::move(cb), allow_exceptions, ignore_comments);
-    }
 
     template<typename CharType>
     using output_adapter_t = ::nlohmann::detail::output_adapter_t<CharType>;
@@ -203,8 +183,6 @@ class basic_json
     /// helper type for initializer lists of basic_json values
     using initializer_list_t = std::initializer_list<detail::json_ref<basic_json>>;
 
-    using input_format_t = detail::input_format_t;
-
     ////////////////
     // exceptions //
     ////////////////
@@ -215,8 +193,6 @@ class basic_json
 
     /// @copydoc detail::exception
     using exception = detail::exception;
-    /// @copydoc detail::parse_error
-    using parse_error = detail::parse_error;
     /// @copydoc detail::invalid_iterator
     using invalid_iterator = detail::invalid_iterator;
     /// @copydoc detail::type_error
@@ -1185,78 +1161,6 @@ class basic_json
     }
 
   public:
-    //////////////////////////
-    // JSON parser callback //
-    //////////////////////////
-
-    /*!
-    @brief parser event types
-
-    The parser callback distinguishes the following events:
-    - `object_start`: the parser read `{` and started to process a JSON object
-    - `key`: the parser read a key of a value in an object
-    - `object_end`: the parser read `}` and finished processing a JSON object
-    - `array_start`: the parser read `[` and started to process a JSON array
-    - `array_end`: the parser read `]` and finished processing a JSON array
-    - `value`: the parser finished reading a JSON value
-
-    @image html callback_events.png "Example when certain parse events are triggered"
-
-    @sa @ref parser_callback_t for more information and examples
-    */
-    using parse_event_t = detail::parse_event_t;
-
-    /*!
-    @brief per-element parser callback type
-
-    With a parser callback function, the result of parsing a JSON text can be
-    influenced. When passed to @ref parse, it is called on certain events
-    (passed as @ref parse_event_t via parameter @a event) with a set recursion
-    depth @a depth and context JSON value @a parsed. The return value of the
-    callback function is a boolean indicating whether the element that emitted
-    the callback shall be kept or not.
-
-    We distinguish six scenarios (determined by the event type) in which the
-    callback function can be called. The following table describes the values
-    of the parameters @a depth, @a event, and @a parsed.
-
-    parameter @a event | description | parameter @a depth | parameter @a parsed
-    ------------------ | ----------- | ------------------ | -------------------
-    parse_event_t::object_start | the parser read `{` and started to process a JSON object | depth of the parent of the JSON object | a JSON value with type discarded
-    parse_event_t::key | the parser read a key of a value in an object | depth of the currently parsed JSON object | a JSON string containing the key
-    parse_event_t::object_end | the parser read `}` and finished processing a JSON object | depth of the parent of the JSON object | the parsed JSON object
-    parse_event_t::array_start | the parser read `[` and started to process a JSON array | depth of the parent of the JSON array | a JSON value with type discarded
-    parse_event_t::array_end | the parser read `]` and finished processing a JSON array | depth of the parent of the JSON array | the parsed JSON array
-    parse_event_t::value | the parser finished reading a JSON value | depth of the value | the parsed JSON value
-
-    @image html callback_events.png "Example when certain parse events are triggered"
-
-    Discarding a value (i.e., returning `false`) has different effects
-    depending on the context in which function was called:
-
-    - Discarded values in structured types are skipped. That is, the parser
-      will behave as if the discarded value was never read.
-    - In case a value outside a structured type is skipped, it is replaced
-      with `null`. This case happens if the top-level element is skipped.
-
-    @param[in] depth  the depth of the recursion during parsing
-
-    @param[in] event  an event of type parse_event_t indicating the context in
-    the callback function has been called
-
-    @param[in,out] parsed  the current intermediate parse result; note that
-    writing to this value has no effect for parse_event_t::key events
-
-    @return Whether the JSON value which called the function during parsing
-    should be kept (`true`) or not (`false`). In the latter case, it is either
-    skipped completely or replaced by an empty discarded object.
-
-    @sa @ref parse for examples
-
-    @since version 1.0.0
-    */
-    using parser_callback_t = detail::parser_callback_t<basic_json>;
-
     //////////////////
     // constructors //
     //////////////////
@@ -5146,113 +5050,6 @@ class basic_json
     /// @{
 
     /*!
-    @brief deserialize from a compatible input
-
-    @tparam InputType A compatible input, for instance
-    - an std::istream object
-    - a FILE pointer
-    - a C-style array of characters
-    - a pointer to a null-terminated string of single byte characters
-    - an object obj for which begin(obj) and end(obj) produces a valid pair of
-      iterators.
-
-    @param[in] i  input to read from
-    @param[in] cb  a parser callback function of type @ref parser_callback_t
-    which is used to control the deserialization by filtering unwanted values
-    (optional)
-    @param[in] allow_exceptions  whether to throw exceptions in case of a
-    parse error (optional, true by default)
-    @param[in] ignore_comments  whether comments should be ignored and treated
-    like whitespace (true) or yield a parse error (true); (optional, false by
-    default)
-
-    @return deserialized JSON value; in case of a parse error and
-            @a allow_exceptions set to `false`, the return value will be
-            value_t::discarded.
-
-    @throw parse_error.101 if a parse error occurs; example: `""unexpected end
-    of input; expected string literal""`
-    @throw parse_error.102 if to_unicode fails or surrogate error
-    @throw parse_error.103 if to_unicode fails
-
-    @complexity Linear in the length of the input. The parser is a predictive
-    LL(1) parser. The complexity can be higher if the parser callback function
-    @a cb or reading from the input @a i has a super-linear complexity.
-
-    @note A UTF-8 byte order mark is silently ignored.
-
-    @liveexample{The example below demonstrates the `parse()` function reading
-    from an array.,parse__array__parser_callback_t}
-
-    @liveexample{The example below demonstrates the `parse()` function with
-    and without callback function.,parse__string__parser_callback_t}
-
-    @liveexample{The example below demonstrates the `parse()` function with
-    and without callback function.,parse__istream__parser_callback_t}
-
-    @liveexample{The example below demonstrates the `parse()` function reading
-    from a contiguous container.,parse__contiguouscontainer__parser_callback_t}
-
-    @since version 2.0.3 (contiguous containers); version 3.9.0 allowed to
-    ignore comments.
-    */
-    template<typename InputType>
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    static basic_json parse(InputType&& i,
-                            const parser_callback_t cb = nullptr,
-                            const bool allow_exceptions = true,
-                            const bool ignore_comments = false)
-    {
-        basic_json result;
-        parser(detail::input_adapter(std::forward<InputType>(i)), cb, allow_exceptions, ignore_comments).parse(true, result);
-        return result;
-    }
-
-    /*!
-    @brief check if the input is valid JSON
-
-    Unlike the @ref parse(InputType&&, const parser_callback_t,const bool)
-    function, this function neither throws an exception in case of invalid JSON
-    input (i.e., a parse error) nor creates diagnostic information.
-
-    @tparam InputType A compatible input, for instance
-    - an std::istream object
-    - a FILE pointer
-    - a C-style array of characters
-    - a pointer to a null-terminated string of single byte characters
-    - an object obj for which begin(obj) and end(obj) produces a valid pair of
-      iterators.
-
-    @param[in] i input to read from
-    @param[in] ignore_comments  whether comments should be ignored and treated
-    like whitespace (true) or yield a parse error (true); (optional, false by
-    default)
-
-    @return Whether the input read from @a i is valid JSON.
-
-    @complexity Linear in the length of the input. The parser is a predictive
-    LL(1) parser.
-
-    @note A UTF-8 byte order mark is silently ignored.
-
-    @liveexample{The example below demonstrates the `accept()` function reading
-    from a string.,accept__string}
-    */
-    template<typename InputType>
-    static bool accept(InputType&& i,
-                       const bool ignore_comments = false)
-    {
-        return parser(detail::input_adapter(std::forward<InputType>(i)), nullptr, false, ignore_comments).accept(true);
-    }
-
-    template<typename IteratorType>
-    static bool accept(IteratorType first, IteratorType last,
-                       const bool ignore_comments = false)
-    {
-        return parser(detail::input_adapter(std::move(first), std::move(last)), nullptr, false, ignore_comments).accept(true);
-    }
-
-    /*!
     @brief deserialize from stream
     @deprecated This stream operator is deprecated and will be removed in
                 version 4.0.0 of the library. Please use
@@ -5264,37 +5061,6 @@ class basic_json
     friend std::istream& operator<<(basic_json& j, std::istream& i)
     {
         return operator>>(i, j);
-    }
-
-    /*!
-    @brief deserialize from stream
-
-    Deserializes an input stream to a JSON value.
-
-    @param[in,out] i  input stream to read a serialized JSON value from
-    @param[in,out] j  JSON value to write the deserialized input to
-
-    @throw parse_error.101 in case of an unexpected token
-    @throw parse_error.102 if to_unicode fails or surrogate error
-    @throw parse_error.103 if to_unicode fails
-
-    @complexity Linear in the length of the input. The parser is a predictive
-    LL(1) parser.
-
-    @note A UTF-8 byte order mark is silently ignored.
-
-    @liveexample{The example below shows how a JSON value is constructed by
-    reading a serialization from a stream.,operator_deserialize}
-
-    @sa parse(std::istream&, const parser_callback_t) for a variant with a
-    parser callback function to filter values while parsing
-
-    @since version 1.0.0
-    */
-    friend std::istream& operator>>(std::istream& i, basic_json& j)
-    {
-        parser(detail::input_adapter(i)).parse(false, j);
-        return i;
     }
 
     /// @}
@@ -5787,12 +5553,6 @@ class basic_json
             }
         };
 
-        // type check: top level value must be an array
-        if (JSON_HEDLEY_UNLIKELY(!json_patch.is_array()))
-        {
-            JSON_THROW(parse_error::create(104, 0, "JSON patch must be an array of objects"));
-        }
-
         // iterate and apply the operations
         for (const auto& val : json_patch)
         {
@@ -5807,27 +5567,9 @@ class basic_json
                 // context-sensitive error message
                 const auto error_msg = (op == "op") ? "operation" : "operation '" + op + "'";
 
-                // check if desired value is present
-                if (JSON_HEDLEY_UNLIKELY(it == val.m_value.object->end()))
-                {
-                    JSON_THROW(parse_error::create(105, 0, error_msg + " must have member '" + member + "'"));
-                }
-
-                // check if result is of type string
-                if (JSON_HEDLEY_UNLIKELY(string_type && !it->second.is_string()))
-                {
-                    JSON_THROW(parse_error::create(105, 0, error_msg + " must have string member '" + member + "'"));
-                }
-
                 // no error: return value
                 return it->second;
             };
-
-            // type check: every element of the array must be an object
-            if (JSON_HEDLEY_UNLIKELY(!val.is_object()))
-            {
-                JSON_THROW(parse_error::create(104, 0, "JSON patch must be an array of objects"));
-            }
 
             // collect mandatory members
             const auto op = get_value("op", "op", true).template get<std::string>();
@@ -5912,9 +5654,6 @@ class basic_json
 
                 default:
                 {
-                    // op must be "add", "remove", "replace", "move", "copy", or
-                    // "test"
-                    JSON_THROW(parse_error::create(105, 0, "operation value '" + op + "' is invalid"));
                 }
             }
         }
