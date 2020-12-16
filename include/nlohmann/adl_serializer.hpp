@@ -3,7 +3,6 @@
 #include <utility>
 
 #include <nlohmann/detail/conversions/from_json.hpp>
-#include <nlohmann/detail/conversions/to_json.hpp>
 
 namespace nlohmann
 {
@@ -26,23 +25,6 @@ struct adl_serializer
     -> decltype(::nlohmann::from_json(std::forward<BasicJsonType>(j), val), void())
     {
         ::nlohmann::from_json(std::forward<BasicJsonType>(j), val);
-    }
-
-    /*!
-    @brief convert any value type to a JSON value
-
-    This function is usually called by the constructors of the @ref basic_json
-    class.
-
-    @param[in,out] j  JSON value to write to
-    @param[in] val    value to read from
-    */
-    template<typename BasicJsonType, typename ValueType>
-    static auto to_json(BasicJsonType& j, ValueType&& val) noexcept(
-        noexcept(::nlohmann::to_json(j, std::forward<ValueType>(val))))
-    -> decltype(::nlohmann::to_json(j, std::forward<ValueType>(val)), void())
-    {
-        ::nlohmann::to_json(j, std::forward<ValueType>(val));
     }
 };
 

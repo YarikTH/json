@@ -48,7 +48,6 @@ SOFTWARE.
 
 #include <nlohmann/adl_serializer.hpp>
 #include <nlohmann/detail/conversions/from_json.hpp>
-#include <nlohmann/detail/conversions/to_json.hpp>
 #include <nlohmann/detail/exceptions.hpp>
 #include <nlohmann/detail/hash.hpp>
 #include <nlohmann/detail/json_pointer.hpp>
@@ -156,7 +155,6 @@ NLOHMANN_BASIC_JSON_TPL_DECLARATION
 class basic_json
 {
   private:
-    template<detail::value_t> friend struct detail::external_constructor;
     friend ::nlohmann::json_pointer<basic_json>;
 
     /// workaround type for MSVC
