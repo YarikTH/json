@@ -38,20 +38,6 @@ template<template<typename U, typename V, typename... Args> class ObjectType =
 class basic_json;
 
 /*!
-@brief JSON Pointer
-
-A JSON pointer defines a string syntax for identifying a specific value
-within a JSON document. It can be used with functions `at` and
-`operator[]`. Furthermore, JSON pointers are the base for JSON patches.
-
-@sa [RFC 6901](https://tools.ietf.org/html/rfc6901)
-
-@since version 2.0.0
-*/
-template<typename BasicJsonType>
-class json_pointer;
-
-/*!
 @brief default JSON class
 
 This type is the default specialization of the @ref basic_json class which

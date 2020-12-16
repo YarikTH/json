@@ -51,9 +51,6 @@ SOFTWARE.
 
 #include <utility>
 
-// #include <nlohmann/detail/conversions/from_json.hpp>
-
-
 // #include <nlohmann/detail/macro_scope.hpp>
 
 
@@ -200,8 +197,8 @@ SOFTWARE.
 // #include <nlohmann/detail/meta/cpp_future.hpp>
 
 
-#include <cstddef> // size_t
-#include <type_traits> // conditional, enable_if, false_type, integral_constant, is_constructible, is_integral, is_same, remove_cv, remove_reference, true_type
+#include <cstddef>
+#include <type_traits>
 
 namespace nlohmann
 {
@@ -214,42 +211,6 @@ using enable_if_t = typename std::enable_if<B, T>::type;
 template<typename T>
 using uncvref_t = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
-// implementation of C++14 index_sequence and affiliates
-// source: https://stackoverflow.com/a/32223343
-template<std::size_t... Ints>
-struct index_sequence
-{
-    using type = index_sequence;
-    using value_type = std::size_t;
-    static constexpr std::size_t size() noexcept
-    {
-        return sizeof...(Ints);
-    }
-};
-
-template<class Sequence1, class Sequence2>
-struct merge_and_renumber;
-
-template<std::size_t... I1, std::size_t... I2>
-struct merge_and_renumber<index_sequence<I1...>, index_sequence<I2...>>
-        : index_sequence < I1..., (sizeof...(I1) + I2)... > {};
-
-template<std::size_t N>
-struct make_index_sequence
-    : merge_and_renumber < typename make_index_sequence < N / 2 >::type,
-      typename make_index_sequence < N - N / 2 >::type > {};
-
-template<> struct make_index_sequence<0> : index_sequence<> {};
-template<> struct make_index_sequence<1> : index_sequence<0> {};
-
-template<typename... Ts>
-using index_sequence_for = make_index_sequence<sizeof...(Ts)>;
-
-// dispatch utility (taken from ranges-v3)
-template<unsigned N> struct priority_tag : priority_tag < N - 1 > {};
-template<> struct priority_tag<0> {};
-
-// taken from ranges-v3
 template<typename T>
 struct static_const
 {
@@ -334,15 +295,9 @@ using detected_t = typename detector<nonesuch, void, Op, Args...>::type;
 template<class Default, template<class...> class Op, class... Args>
 using detected_or = detector<Default, void, Op, Args...>;
 
-template<class Default, template<class...> class Op, class... Args>
-using detected_or_t = typename detected_or<Default, Op, Args...>::type;
-
 template<class Expected, template<class...> class Op, class... Args>
 using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
 
-template<class To, template<class...> class Op, class... Args>
-using is_detected_convertible =
-    std::is_convertible<detected_t<Op, Args...>, To>;
 }  // namespace detail
 }  // namespace nlohmann
 
@@ -385,20 +340,6 @@ template<template<typename U, typename V, typename... Args> class ObjectType =
          adl_serializer,
          class BinaryType = std::vector<std::uint8_t>>
 class basic_json;
-
-/*!
-@brief JSON Pointer
-
-A JSON pointer defines a string syntax for identifying a specific value
-within a JSON document. It can be used with functions `at` and
-`operator[]`. Furthermore, JSON pointers are the base for JSON patches.
-
-@sa [RFC 6901](https://tools.ietf.org/html/rfc6901)
-
-@since version 2.0.0
-*/
-template<typename BasicJsonType>
-class json_pointer;
 
 /*!
 @brief default JSON class
@@ -551,68 +492,6 @@ template<typename BasicJsonType, typename ConstructibleObjectType,
          typename = void>
 struct is_constructible_object_type_impl : std::false_type {};
 
-template<typename BasicJsonType, typename ConstructibleObjectType>
-struct is_constructible_object_type_impl <
-    BasicJsonType, ConstructibleObjectType,
-    enable_if_t < is_detected<mapped_type_t, ConstructibleObjectType>::value&&
-    is_detected<key_type_t, ConstructibleObjectType>::value >>
-{
-    using object_t = typename BasicJsonType::object_t;
-
-    static constexpr bool value =
-        (std::is_default_constructible<ConstructibleObjectType>::value &&
-         (std::is_move_assignable<ConstructibleObjectType>::value ||
-          std::is_copy_assignable<ConstructibleObjectType>::value) &&
-         (std::is_constructible<typename ConstructibleObjectType::key_type,
-          typename object_t::key_type>::value &&
-          std::is_same <
-          typename object_t::mapped_type,
-          typename ConstructibleObjectType::mapped_type >::value)) ||
-        (has_from_json<BasicJsonType,
-         typename ConstructibleObjectType::mapped_type>::value ||
-         has_non_default_from_json <
-         BasicJsonType,
-         typename ConstructibleObjectType::mapped_type >::value);
-};
-
-template<typename BasicJsonType, typename ConstructibleObjectType>
-struct is_constructible_object_type
-    : is_constructible_object_type_impl<BasicJsonType,
-      ConstructibleObjectType> {};
-
-template<typename BasicJsonType, typename ConstructibleStringType,
-         typename = void>
-struct is_constructible_string_type_impl : std::false_type {};
-
-template<typename BasicJsonType, typename ConstructibleStringType>
-struct is_constructible_string_type_impl <
-    BasicJsonType, ConstructibleStringType,
-    enable_if_t<is_detected_exact<typename BasicJsonType::string_t::value_type,
-    value_type_t, ConstructibleStringType>::value >>
-{
-    static constexpr auto value =
-        std::is_constructible<ConstructibleStringType,
-        typename BasicJsonType::string_t>::value;
-};
-
-template<typename BasicJsonType, typename ConstructibleStringType>
-struct is_constructible_string_type
-    : is_constructible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
-
-template<typename BasicJsonType, typename ConstructibleArrayType, typename = void>
-struct is_constructible_array_type_impl : std::false_type {};
-
-template<typename BasicJsonType, typename ConstructibleArrayType>
-struct is_constructible_array_type_impl <
-    BasicJsonType, ConstructibleArrayType,
-    enable_if_t<std::is_same<ConstructibleArrayType,
-    typename BasicJsonType::value_type>::value >>
-            : std::true_type {};
-
-template<typename BasicJsonType, typename ConstructibleArrayType>
-struct is_constructible_array_type
-    : is_constructible_array_type_impl<BasicJsonType, ConstructibleArrayType> {};
-
 template<typename BasicJsonType, typename CompatibleType, typename = void>
 struct is_compatible_type_impl: std::false_type {};
 
@@ -629,12 +508,6 @@ template<typename BasicJsonType, typename CompatibleType>
 struct is_compatible_type
     : is_compatible_type_impl<BasicJsonType, CompatibleType> {};
 
-// https://en.cppreference.com/w/cpp/types/conjunction
-template<class...> struct conjunction : std::true_type { };
-template<class B1> struct conjunction<B1> : B1 { };
-template<class B1, class... Bn>
-struct conjunction<B1, Bn...>
-: std::conditional<bool(B1::value), conjunction<Bn...>, B1>::type {};
 }  // namespace detail
 }  // namespace nlohmann
 
@@ -701,11 +574,6 @@ namespace
 {
 constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::value;
 } // namespace
-} // namespace nlohmann
-
-
-namespace nlohmann
-{
 
 template<typename, typename>
 struct adl_serializer
@@ -729,8 +597,6 @@ struct adl_serializer
 };
 
 }  // namespace nlohmann
-
-// #include <nlohmann/detail/conversions/from_json.hpp>
 
 // #include <nlohmann/detail/macro_scope.hpp>
 
@@ -787,14 +653,10 @@ NLOHMANN_BASIC_JSON_TPL_DECLARATION
 class basic_json
 {
   private:
-    friend ::nlohmann::json_pointer<basic_json>;
-
     /// workaround type for MSVC
     using basic_json_t = NLOHMANN_BASIC_JSON_TPL;
   public:
     using value_t = detail::value_t;
-    /// JSON Pointer, see @ref nlohmann::json_pointer
-    using json_pointer = ::nlohmann::json_pointer<basic_json>;
     template<typename T, typename SFINAE>
     using json_serializer = JSONSerializer<T, SFINAE>;
 
@@ -1288,18 +1150,6 @@ class basic_json
     string_t value(const typename object_t::key_type& key, const char* default_value) const
     {
         return value(key, string_t(default_value));
-    }
-
-    template<class ValueType, typename std::enable_if<
-                 detail::is_getable<basic_json_t, ValueType>::value, int>::type = 0>
-    ValueType value(const json_pointer& ptr, const ValueType& default_value) const
-    {
-        return ptr.get_checked(this).template get<ValueType>();
-    }
-
-    string_t value(const json_pointer& ptr, const char* default_value) const
-    {
-        return value(ptr, string_t(default_value));
     }
 
   public:
