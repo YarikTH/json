@@ -43,7 +43,7 @@ SOFTWARE.
 #include <memory> // unique_ptr
 #include <numeric> // accumulate
 #include <string> // string, stoi, to_string
-#include <utility> // declval, forward, move, pair, swap
+#include <utility> // declval, forward, move, pair
 #include <vector> // vector
 
 // #include <nlohmann/adl_serializer.hpp>
@@ -880,25 +880,9 @@ class basic_json
         array_t* array;
         /// string (stored with pointer to save storage)
         string_t* string;
-        /// boolean
-        boolean_t boolean;
-        /// number (integer)
-        number_integer_t number_integer;
-        /// number (unsigned integer)
-        number_unsigned_t number_unsigned;
-        /// number (floating-point)
-        number_float_t number_float;
 
         /// default constructor (for null values)
         json_value() = default;
-        /// constructor for booleans
-        json_value(boolean_t v) noexcept : boolean(v) {}
-        /// constructor for numbers (integer)
-        json_value(number_integer_t v) noexcept : number_integer(v) {}
-        /// constructor for numbers (unsigned)
-        json_value(number_unsigned_t v) noexcept : number_unsigned(v) {}
-        /// constructor for numbers (floating-point)
-        json_value(number_float_t v) noexcept : number_float(v) {}
         /// constructor for empty values of a given type
         json_value(value_t t)
         {
@@ -1133,10 +1117,6 @@ class basic_json
         // check that passed value is valid
         other.assert_invariant();
 
-        using std::swap;
-        swap(m_type, other.m_type);
-        swap(m_value, other.m_value);
-
         assert_invariant();
         return *this;
     }
@@ -1362,67 +1342,6 @@ class basic_json
         return value(ptr, string_t(default_value));
     }
 
-    ///////////////
-    // modifiers //
-    ///////////////
-    void swap(reference other) noexcept (
-        std::is_nothrow_move_constructible<value_t>::value&&
-        std::is_nothrow_move_assignable<value_t>::value&&
-        std::is_nothrow_move_constructible<json_value>::value&&
-        std::is_nothrow_move_assignable<json_value>::value
-    )
-    {
-        std::swap(m_type, other.m_type);
-        std::swap(m_value, other.m_value);
-        assert_invariant();
-    }
-
-    friend void swap(reference left, reference right) noexcept (
-        std::is_nothrow_move_constructible<value_t>::value&&
-        std::is_nothrow_move_assignable<value_t>::value&&
-        std::is_nothrow_move_constructible<json_value>::value&&
-        std::is_nothrow_move_assignable<json_value>::value
-    )
-    {
-        left.swap(right);
-    }
-
-    void swap(array_t& other)
-    {
-        // swap only works for arrays
-        if (!!(is_array()))
-        {
-            std::swap(*(m_value.array), other);
-        }
-        else
-        {
-        }
-    }
-
-    void swap(object_t& other)
-    {
-        // swap only works for objects
-        if (!!(is_object()))
-        {
-            std::swap(*(m_value.object), other);
-        }
-        else
-        {
-        }
-    }
-
-    void swap(string_t& other)
-    {
-        // swap only works for strings
-        if (!!(is_string()))
-        {
-            std::swap(*(m_value.string), other);
-        }
-        else
-        {
-        }
-    }
-
   public:
     //////////////////////////////////////////
     // lexicographical comparison operators //
@@ -1634,7 +1553,6 @@ class basic_json
 // nonmember support //
 ///////////////////////
 
-// specialization of std::swap
 namespace std
 {
 
@@ -1647,20 +1565,6 @@ struct less<::nlohmann::detail::value_t>
         return nlohmann::detail::operator<(lhs, rhs);
     }
 };
-
-// C++20 prohibit function specialization in the std namespace.
-#ifndef JSON_HAS_CPP_20
-
-template<>
-inline void swap<nlohmann::json>(nlohmann::json& j1, nlohmann::json& j2) noexcept(
-    is_nothrow_move_constructible<nlohmann::json>::value&&
-    is_nothrow_move_assignable<nlohmann::json>::value
-                              )
-{
-    j1.swap(j2);
-}
-
-#endif
 
 } // namespace std
 
