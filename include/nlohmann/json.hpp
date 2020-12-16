@@ -5,17 +5,14 @@
 #define NLOHMANN_JSON_VERSION_MINOR 9
 #define NLOHMANN_JSON_VERSION_PATCH 1
 
-#include <algorithm> // all_of, find, for_each
-#include <cstddef> // nullptr_t, ptrdiff_t, size_t
-#include <functional> // hash, less
-#include <initializer_list> // initializer_list
-#include <iosfwd> // istream, ostream
-#include <iterator> // random_access_iterator_tag
-#include <memory> // unique_ptr
-#include <numeric> // accumulate
-#include <string> // string, stoi, to_string
-#include <utility> // declval, forward, move, pair
-#include <vector> // vector
+#include <algorithm>
+#include <cstddef>
+#include <iosfwd>
+#include <memory>
+#include <numeric>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <nlohmann/adl_serializer.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
@@ -45,16 +42,6 @@ class basic_json
 
     /// the type of elements in a basic_json container
     using value_type = basic_json;
-
-    /// the type of an element reference
-    using reference = value_type&;
-    /// the type of an element const reference
-    using const_reference = const value_type&;
-
-    /// a type to represent differences between iterators
-    using difference_type = std::ptrdiff_t;
-    /// a type to represent container sizes
-    using size_type = std::size_t;
 
     /// the allocator type
     using allocator_type = AllocatorType<basic_json>;
@@ -96,8 +83,7 @@ class basic_json
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t <
                    !detail::is_basic_json<ValueType>::value &&
-                   detail::has_from_json<basic_json_t, ValueType>::value &&
-                   !detail::has_non_default_from_json<basic_json_t, ValueType>::value,
+                   detail::has_from_json<basic_json_t, ValueType>::value,
                    int > = 0 >
     ValueType get() const noexcept(noexcept(
                                        JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), std::declval<ValueType&>())))

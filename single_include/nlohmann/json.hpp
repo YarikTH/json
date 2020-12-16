@@ -5,17 +5,14 @@
 #define NLOHMANN_JSON_VERSION_MINOR 9
 #define NLOHMANN_JSON_VERSION_PATCH 1
 
-#include <algorithm> // all_of, find, for_each
-#include <cstddef> // nullptr_t, ptrdiff_t, size_t
-#include <functional> // hash, less
-#include <initializer_list> // initializer_list
-#include <iosfwd> // istream, ostream
-#include <iterator> // random_access_iterator_tag
-#include <memory> // unique_ptr
-#include <numeric> // accumulate
-#include <string> // string, stoi, to_string
-#include <utility> // declval, forward, move, pair
-#include <vector> // vector
+#include <algorithm>
+#include <cstddef>
+#include <iosfwd>
+#include <memory>
+#include <numeric>
+#include <string>
+#include <utility>
+#include <vector>
 
 // #include <nlohmann/adl_serializer.hpp>
 
@@ -263,9 +260,6 @@ NLOHMANN_BASIC_JSON_TPL_DECLARATION
 struct is_basic_json<NLOHMANN_BASIC_JSON_TPL> : std::true_type {};
 
 template<typename T, typename... Args>
-using to_json_function = decltype(T::to_json(std::declval<Args>()...));
-
-template<typename T, typename... Args>
 using from_json_function = decltype(T::from_json(std::declval<Args>()...));
 
 template<typename T, typename U>
@@ -285,49 +279,6 @@ struct has_from_json < BasicJsonType, T,
         is_detected_exact<void, from_json_function, serializer,
         const BasicJsonType&, T&>::value;
 };
-
-// This trait checks if JSONSerializer<T>::from_json(json const&) exists
-// this overload is used for non-default-constructible user-defined-types
-template<typename BasicJsonType, typename T, typename = void>
-struct has_non_default_from_json : std::false_type {};
-
-template<typename BasicJsonType, typename T>
-struct has_non_default_from_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
-{
-    using serializer = typename BasicJsonType::template json_serializer<T, void>;
-
-    static constexpr bool value =
-        is_detected_exact<T, from_json_function, serializer,
-        const BasicJsonType&>::value;
-};
-
-// This trait checks if BasicJsonType::json_serializer<T>::to_json exists
-// Do not evaluate the trait when T is a basic_json type, to avoid template instantiation infinite recursion.
-template<typename BasicJsonType, typename T, typename = void>
-struct has_to_json : std::false_type {};
-
-template<typename BasicJsonType, typename T>
-struct has_to_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
-{
-    using serializer = typename BasicJsonType::template json_serializer<T, void>;
-
-    static constexpr bool value =
-        is_detected_exact<void, to_json_function, serializer, BasicJsonType&,
-        T>::value;
-};
-
-
-///////////////////
-// is_ functions //
-///////////////////
-
-// source: https://stackoverflow.com/a/37193089/4116453
-
-template<typename T, typename = void>
-struct is_complete_type : std::false_type {};
-
-template<typename T>
-struct is_complete_type<T, decltype(void(sizeof(T)))> : std::true_type {};
 
 }  // namespace detail
 }  // namespace nlohmann
@@ -423,22 +374,11 @@ template <class Key, class T, class IgnoredLess = std::less<Key>,
           class Allocator = std::allocator<std::pair<const Key, T>>>
                   struct ordered_map : std::vector<std::pair<const Key, T>, Allocator>
 {
-    using key_type = Key;
-    using mapped_type = T;
     using Container = std::vector<std::pair<const Key, T>, Allocator>;
-    using typename Container::iterator;
-    using typename Container::const_iterator;
-    using typename Container::size_type;
-    using typename Container::value_type;
 
     // Explicit constructors instead of `using Container::Container`
     // otherwise older compilers choke on it (GCC <= 5.5, xcode <= 9.4)
     ordered_map(const Allocator& alloc = Allocator()) : Container{alloc} {}
-    template <class It>
-    ordered_map(It first, It last, const Allocator& alloc = Allocator())
-        : Container{first, last, alloc} {}
-    ordered_map(std::initializer_list<T> init, const Allocator& alloc = Allocator() )
-        : Container{init, alloc} {}
 };
 
 }  // namespace nlohmann
@@ -464,16 +404,6 @@ class basic_json
 
     /// the type of elements in a basic_json container
     using value_type = basic_json;
-
-    /// the type of an element reference
-    using reference = value_type&;
-    /// the type of an element const reference
-    using const_reference = const value_type&;
-
-    /// a type to represent differences between iterators
-    using difference_type = std::ptrdiff_t;
-    /// a type to represent container sizes
-    using size_type = std::size_t;
 
     /// the allocator type
     using allocator_type = AllocatorType<basic_json>;
@@ -515,8 +445,7 @@ class basic_json
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t <
                    !detail::is_basic_json<ValueType>::value &&
-                   detail::has_from_json<basic_json_t, ValueType>::value &&
-                   !detail::has_non_default_from_json<basic_json_t, ValueType>::value,
+                   detail::has_from_json<basic_json_t, ValueType>::value,
                    int > = 0 >
     ValueType get() const noexcept(noexcept(
                                        JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), std::declval<ValueType&>())))
