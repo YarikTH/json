@@ -113,16 +113,6 @@ class basic_json
 
     using array_t = ArrayType<basic_json, AllocatorType<basic_json>>;
 
-    using string_t = StringType;
-
-    using boolean_t = BooleanType;
-
-    using number_integer_t = NumberIntegerType;
-
-    using number_unsigned_t = NumberUnsignedType;
-
-    using number_float_t = NumberFloatType;
-
   private:
 
     /// helper for exception-safe object creation
@@ -148,8 +138,6 @@ class basic_json
         object_t* object;
         /// array (stored with pointer to save storage)
         array_t* array;
-        /// string (stored with pointer to save storage)
-        string_t* string;
 
         /// default constructor (for null values)
         json_value() = default;
@@ -170,12 +158,6 @@ class basic_json
                     break;
                 }
 
-                case value_t::string:
-                {
-                    string = create<string_t>("");
-                    break;
-                }
-
                 case value_t::null:
                 {
                     object = nullptr;  // silence warning, see #821
@@ -188,18 +170,6 @@ class basic_json
                     break;
                 }
             }
-        }
-
-        /// constructor for strings
-        json_value(const string_t& value)
-        {
-            string = create<string_t>(value);
-        }
-
-        /// constructor for rvalue strings
-        json_value(string_t&& value)
-        {
-            string = create<string_t>(std::move(value));
         }
 
         /// constructor for objects
@@ -293,14 +263,6 @@ class basic_json
                     break;
                 }
 
-                case value_t::string:
-                {
-                    AllocatorType<string_t> alloc;
-                    std::allocator_traits<decltype(alloc)>::destroy(alloc, string);
-                    std::allocator_traits<decltype(alloc)>::deallocate(alloc, string, 1);
-                    break;
-                }
-
                 default:
                 {
                     break;
@@ -313,7 +275,6 @@ class basic_json
     {
         JSON_ASSERT(m_type != value_t::object || m_value.object != nullptr);
         JSON_ASSERT(m_type != value_t::array || m_value.array != nullptr);
-        JSON_ASSERT(m_type != value_t::string || m_value.string != nullptr);
     }
 
   public:
@@ -350,15 +311,11 @@ class basic_json
                    detail::is_basic_json<BasicJsonType>::value&& !std::is_same<basic_json, BasicJsonType>::value, int > = 0 >
     basic_json(const BasicJsonType& val)
     {
-        using other_string_t = typename BasicJsonType::string_t;
         using other_object_t = typename BasicJsonType::object_t;
         using other_array_t = typename BasicJsonType::array_t;
 
         switch (val.type())
         {
-            case value_t::string:
-                JSONSerializer<other_string_t>::to_json(*this, val.template get_ref<const other_string_t&>());
-                break;
             case value_t::object:
                 JSONSerializer<other_object_t>::to_json(*this, val.template get_ref<const other_object_t&>());
                 break;
@@ -410,7 +367,7 @@ class basic_json
 
     constexpr bool is_primitive() const noexcept
     {
-        return is_null() || is_string();
+        return is_null();
     }
 
     constexpr bool is_structured() const noexcept
@@ -431,11 +388,6 @@ class basic_json
     constexpr bool is_array() const noexcept
     {
         return m_type == value_t::array;
-    }
-
-    constexpr bool is_string() const noexcept
-    {
-        return m_type == value_t::string;
     }
 
     constexpr operator value_t() const noexcept
@@ -472,18 +424,6 @@ class basic_json
     constexpr const array_t* get_impl_ptr(const array_t* /*unused*/) const noexcept
     {
         return is_array() ? m_value.array : nullptr;
-    }
-
-    /// get a pointer to the value (string)
-    string_t* get_impl_ptr(string_t* /*unused*/) noexcept
-    {
-        return is_string() ? m_value.string : nullptr;
-    }
-
-    /// get a pointer to the value (string)
-    constexpr const string_t* get_impl_ptr(const string_t* /*unused*/) const noexcept
-    {
-        return is_string() ? m_value.string : nullptr;
     }
 
   public:
@@ -537,9 +477,7 @@ class basic_json
 
     template < typename ValueType, typename std::enable_if <
                    !std::is_pointer<ValueType>::value&&
-                   !std::is_same<ValueType, typename string_t::value_type>::value&&
                    !detail::is_basic_json<ValueType>::value
-                   && !std::is_same<ValueType, std::initializer_list<typename string_t::value_type>>::value
 #if defined(JSON_HAS_CPP_17) && (defined(__GNUC__) || (defined(_MSC_VER) && _MSC_VER >= 1910 && _MSC_VER <= 1914))
                    && !std::is_same<ValueType, typename std::string_view>::value
 #endif
@@ -551,14 +489,6 @@ class basic_json
         return get<ValueType>();
     }
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    ////////////////////
-    // element access //
-    ////////////////////
-    string_t value(const typename object_t::key_type& key, const char* default_value) const
-    {
-        return value(key, string_t(default_value));
-    }
 
   public:
     const char* type_name() const noexcept
@@ -572,8 +502,6 @@ class basic_json
                     return "object";
                 case value_t::array:
                     return "array";
-                case value_t::string:
-                    return "string";
                 default:
                     return "number";
             }
