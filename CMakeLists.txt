@@ -25,6 +25,14 @@ option(JSON_BuildTests "Build the unit tests when BUILD_TESTING is enabled." ON)
 option(JSON_Install "Install CMake targets during install step." ON)
 option(JSON_MultipleHeaders "Use non-amalgamated version of the library." OFF)
 option(JSON_ImplicitConversions "Enable implicit conversions." ON)
+if( CMAKE_CXX_COMPILER_ID STREQUAL Clang )
+    include(cmake/ucm.cmake)
+    option(JSON_CPP_STD_LIB "C++ standard library" "libstdc++")
+    ucm_add_flags(CXX "-stdlib=${JSON_CPP_STD_LIB}")
+    ucm_add_flags(CXX "-ftemplate-backtrace-limit=0")
+    ucm_print_flags()
+endif()
+
 
 ##
 ## CONFIGURATION
@@ -162,3 +170,13 @@ endif()
         DESTINATION ${NLOHMANN_JSON_PKGCONFIG_INSTALL_DIR}
     )
 endif()
+
+add_library( wtf wtf.cpp )
+
+target_include_directories( wtf PUBLIC ${PROJECT_SOURCE_DIR}/include/ )
+
+
+add_library( wtf_magic wtf_magic.cpp )
+
+target_include_directories( wtf_magic PUBLIC ${PROJECT_SOURCE_DIR}/include/ )
+
