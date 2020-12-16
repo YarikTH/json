@@ -48,7 +48,6 @@ SOFTWARE.
 
 #include <nlohmann/adl_serializer.hpp>
 #include <nlohmann/detail/conversions/from_json.hpp>
-#include <nlohmann/detail/exceptions.hpp>
 #include <nlohmann/detail/hash.hpp>
 #include <nlohmann/detail/json_pointer.hpp>
 #include <nlohmann/detail/json_ref.hpp>
@@ -78,21 +77,6 @@ class basic_json
     using json_serializer = JSONSerializer<T, SFINAE>;
     /// helper type for initializer lists of basic_json values
     using initializer_list_t = std::initializer_list<detail::json_ref<basic_json>>;
-
-    ////////////////
-    // exceptions //
-    ////////////////
-
-    /// @copydoc detail::exception
-    using exception = detail::exception;
-    /// @copydoc detail::invalid_iterator
-    using invalid_iterator = detail::invalid_iterator;
-    /// @copydoc detail::type_error
-    using type_error = detail::type_error;
-    /// @copydoc detail::out_of_range
-    using out_of_range = detail::out_of_range;
-    /// @copydoc detail::other_error
-    using other_error = detail::other_error;
 
     /// @}
 
@@ -228,10 +212,6 @@ class basic_json
                 default:
                 {
                     object = nullptr;  // silence warning, see #821
-                    if (JSON_HEDLEY_UNLIKELY(t == value_t::null))
-                    {
-                        JSON_THROW(other_error::create(500, "961c151d2e87f2686a955a9be24d316f1362bf21 3.9.1")); // LCOV_EXCL_LINE
-                    }
                     break;
                 }
             }
@@ -715,86 +695,22 @@ class basic_json
     ////////////////////
     reference at(size_type idx)
     {
-        // at only works for arrays
-        if (JSON_HEDLEY_LIKELY(is_array()))
-        {
-            JSON_TRY
-            {
-                return m_value.array->at(idx);
-            }
-            JSON_CATCH (std::out_of_range&)
-            {
-                // create better exception explanation
-                JSON_THROW(out_of_range::create(401, "array index " + std::to_string(idx) + " is out of range"));
-            }
-        }
-        else
-        {
-            JSON_THROW(type_error::create(304, "cannot use at() with " + std::string(type_name())));
-        }
+        return m_value.array->at(idx);
     }
 
     const_reference at(size_type idx) const
     {
-        // at only works for arrays
-        if (JSON_HEDLEY_LIKELY(is_array()))
-        {
-            JSON_TRY
-            {
-                return m_value.array->at(idx);
-            }
-            JSON_CATCH (std::out_of_range&)
-            {
-                // create better exception explanation
-                JSON_THROW(out_of_range::create(401, "array index " + std::to_string(idx) + " is out of range"));
-            }
-        }
-        else
-        {
-            JSON_THROW(type_error::create(304, "cannot use at() with " + std::string(type_name())));
-        }
+        return m_value.array->at(idx);
     }
 
     reference at(const typename object_t::key_type& key)
     {
-        // at only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
-        {
-            JSON_TRY
-            {
-                return m_value.object->at(key);
-            }
-            JSON_CATCH (std::out_of_range&)
-            {
-                // create better exception explanation
-                JSON_THROW(out_of_range::create(403, "key '" + key + "' not found"));
-            }
-        }
-        else
-        {
-            JSON_THROW(type_error::create(304, "cannot use at() with " + std::string(type_name())));
-        }
+        return m_value.object->at(key);
     }
 
     const_reference at(const typename object_t::key_type& key) const
     {
-        // at only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
-        {
-            JSON_TRY
-            {
-                return m_value.object->at(key);
-            }
-            JSON_CATCH (std::out_of_range&)
-            {
-                // create better exception explanation
-                JSON_THROW(out_of_range::create(403, "key '" + key + "' not found"));
-            }
-        }
-        else
-        {
-            JSON_THROW(type_error::create(304, "cannot use at() with " + std::string(type_name())));
-        }
+        return m_value.object->at(key);
     }
 
     reference operator[](size_type idx)
@@ -807,32 +723,14 @@ class basic_json
             assert_invariant();
         }
 
-        // operator[] only works for arrays
-        if (JSON_HEDLEY_LIKELY(is_array()))
-        {
-            // fill up array with null values if given idx is outside range
-            if (idx >= m_value.array->size())
-            {
-                m_value.array->insert(m_value.array->end(),
-                                      idx - m_value.array->size() + 1,
-                                      basic_json());
-            }
-
-            return m_value.array->operator[](idx);
-        }
-
-        JSON_THROW(type_error::create(305, "cannot use operator[] with a numeric argument with " + std::string(type_name())));
+        m_value.array->insert(m_value.array->end(),
+                              idx - m_value.array->size() + 1,
+                              basic_json());
     }
 
     const_reference operator[](size_type idx) const
     {
-        // const operator[] only works for arrays
-        if (JSON_HEDLEY_LIKELY(is_array()))
-        {
-            return m_value.array->operator[](idx);
-        }
-
-        JSON_THROW(type_error::create(305, "cannot use operator[] with a numeric argument with " + std::string(type_name())));
+        return m_value.array->operator[](idx);
     }
 
     reference operator[](const typename object_t::key_type& key)
@@ -850,8 +748,6 @@ class basic_json
         {
             return m_value.object->operator[](key);
         }
-
-        JSON_THROW(type_error::create(305, "cannot use operator[] with a string argument with " + std::string(type_name())));
     }
 
     const_reference operator[](const typename object_t::key_type& key) const
@@ -862,8 +758,6 @@ class basic_json
             JSON_ASSERT(m_value.object->find(key) != m_value.object->end());
             return m_value.object->find(key)->second;
         }
-
-        JSON_THROW(type_error::create(305, "cannot use operator[] with a string argument with " + std::string(type_name())));
     }
 
     template<typename T>
@@ -883,8 +777,6 @@ class basic_json
         {
             return m_value.object->operator[](key);
         }
-
-        JSON_THROW(type_error::create(305, "cannot use operator[] with a string argument with " + std::string(type_name())));
     }
 
     template<typename T>
@@ -897,8 +789,6 @@ class basic_json
             JSON_ASSERT(m_value.object->find(key) != m_value.object->end());
             return m_value.object->find(key)->second;
         }
-
-        JSON_THROW(type_error::create(305, "cannot use operator[] with a string argument with " + std::string(type_name())));
     }
 
     string_t value(const typename object_t::key_type& key, const char* default_value) const
@@ -910,21 +800,7 @@ class basic_json
                  detail::is_getable<basic_json_t, ValueType>::value, int>::type = 0>
     ValueType value(const json_pointer& ptr, const ValueType& default_value) const
     {
-        // at only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
-        {
-            // if pointer resolves a value, return it or use default value
-            JSON_TRY
-            {
-                return ptr.get_checked(this).template get<ValueType>();
-            }
-            JSON_INTERNAL_CATCH (out_of_range&)
-            {
-                return default_value;
-            }
-        }
-
-        JSON_THROW(type_error::create(306, "cannot use value() with " + std::string(type_name())));
+        return ptr.get_checked(this).template get<ValueType>();
     }
 
     JSON_HEDLEY_NON_NULL(3)
@@ -1027,7 +903,6 @@ class basic_json
         }
         else
         {
-            JSON_THROW(type_error::create(310, "cannot use swap() with " + std::string(type_name())));
         }
     }
 
@@ -1040,7 +915,6 @@ class basic_json
         }
         else
         {
-            JSON_THROW(type_error::create(310, "cannot use swap() with " + std::string(type_name())));
         }
     }
 
@@ -1053,7 +927,6 @@ class basic_json
         }
         else
         {
-            JSON_THROW(type_error::create(310, "cannot use swap() with " + std::string(type_name())));
         }
     }
 
