@@ -531,20 +531,8 @@ enum class value_t : std::uint8_t
 {
     null,             ///< null value
     object,           ///< object (unordered set of name/value pairs)
-    array,            ///< array (ordered collection of values)
 };
 
-inline bool operator<(const value_t lhs, const value_t rhs) noexcept
-{
-    static constexpr std::array<std::uint8_t, 3> order = {{
-            0 /* null */, 3 /* object */, 4 /* array */,
-        }
-    };
-
-    const auto l_index = static_cast<std::size_t>(lhs);
-    const auto r_index = static_cast<std::size_t>(rhs);
-    return l_index < order.size() && r_index < order.size() && order[l_index] < order[r_index];
-}
 }  // namespace detail
 }  // namespace nlohmann
 
@@ -702,7 +690,7 @@ class basic_json
           AllocatorType<std::pair<const StringType,
           basic_json>>>;
 
-    using array_t = ArrayType<basic_json, AllocatorType<basic_json>>;
+    //using array_t = ArrayType<basic_json, AllocatorType<basic_json>>;
 
   private:
 
@@ -727,8 +715,6 @@ class basic_json
     {
         /// object (stored with pointer to save storage)
         object_t* object;
-        /// array (stored with pointer to save storage)
-        array_t* array;
 
         /// default constructor (for null values)
         json_value() = default;
@@ -740,12 +726,6 @@ class basic_json
                 case value_t::object:
                 {
                     object = create<object_t>();
-                    break;
-                }
-
-                case value_t::array:
-                {
-                    array = create<array_t>();
                     break;
                 }
 
@@ -775,30 +755,13 @@ class basic_json
             object = create<object_t>(std::move(value));
         }
 
-        /// constructor for arrays
-        json_value(const array_t& value)
-        {
-            array = create<array_t>(value);
-        }
-
-        /// constructor for rvalue arrays
-        json_value(array_t&& value)
-        {
-            array = create<array_t>(std::move(value));
-        }
-
         void destroy(value_t t) noexcept
         {
             // flatten the current json_value to a heap-allocated stack
             std::vector<basic_json> stack;
 
             // move the top-level items to stack
-            if (t == value_t::array)
-            {
-                stack.reserve(array->size());
-                std::move(array->begin(), array->end(), std::back_inserter(stack));
-            }
-            else if (t == value_t::object)
+            if (t == value_t::object)
             {
                 stack.reserve(object->size());
                 for (auto&& it : *object)
@@ -846,14 +809,6 @@ class basic_json
                     break;
                 }
 
-                case value_t::array:
-                {
-                    AllocatorType<array_t> alloc;
-                    std::allocator_traits<decltype(alloc)>::destroy(alloc, array);
-                    std::allocator_traits<decltype(alloc)>::deallocate(alloc, array, 1);
-                    break;
-                }
-
                 default:
                 {
                     break;
@@ -865,7 +820,6 @@ class basic_json
     void assert_invariant() const noexcept
     {
         JSON_ASSERT(m_type != value_t::object || m_value.object != nullptr);
-        JSON_ASSERT(m_type != value_t::array || m_value.array != nullptr);
     }
 
   public:
@@ -909,9 +863,6 @@ class basic_json
         {
             case value_t::object:
                 JSONSerializer<other_object_t>::to_json(*this, val.template get_ref<const other_object_t&>());
-                break;
-            case value_t::array:
-                JSONSerializer<other_array_t>::to_json(*this, val.template get_ref<const other_array_t&>());
                 break;
             case value_t::null:
                 *this = nullptr;
@@ -963,7 +914,7 @@ class basic_json
 
     constexpr bool is_structured() const noexcept
     {
-        return is_array() || is_object();
+        return is_object();
     }
 
     constexpr bool is_null() const noexcept
@@ -974,11 +925,6 @@ class basic_json
     constexpr bool is_object() const noexcept
     {
         return m_type == value_t::object;
-    }
-
-    constexpr bool is_array() const noexcept
-    {
-        return m_type == value_t::array;
     }
 
     constexpr operator value_t() const noexcept
@@ -1003,18 +949,6 @@ class basic_json
     constexpr const object_t* get_impl_ptr(const object_t* /*unused*/) const noexcept
     {
         return is_object() ? m_value.object : nullptr;
-    }
-
-    /// get a pointer to the value (array)
-    array_t* get_impl_ptr(array_t* /*unused*/) noexcept
-    {
-        return is_array() ? m_value.array : nullptr;
-    }
-
-    /// get a pointer to the value (array)
-    constexpr const array_t* get_impl_ptr(const array_t* /*unused*/) const noexcept
-    {
-        return is_array() ? m_value.array : nullptr;
     }
 
   public:
@@ -1091,8 +1025,6 @@ class basic_json
                     return "null";
                 case value_t::object:
                     return "object";
-                case value_t::array:
-                    return "array";
                 default:
                     return "number";
             }
