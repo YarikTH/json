@@ -1,32 +1,3 @@
-/*
-    __ _____ _____ _____
- __|  |   __|     |   | |  JSON for Modern C++
-|  |  |__   |  |  | | | |  version 3.9.1
-|_____|_____|_____|_|___|  https://github.com/nlohmann/json
-
-Licensed under the MIT License <http://opensource.org/licenses/MIT>.
-SPDX-License-Identifier: MIT
-Copyright (c) 2013-2019 Niels Lohmann <http://nlohmann.me>.
-
-Permission is hereby  granted, free of charge, to any  person obtaining a copy
-of this software and associated  documentation files (the "Software"), to deal
-in the Software  without restriction, including without  limitation the rights
-to  use, copy,  modify, merge,  publish, distribute,  sublicense, and/or  sell
-copies  of  the Software,  and  to  permit persons  to  whom  the Software  is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE  IS PROVIDED "AS  IS", WITHOUT WARRANTY  OF ANY KIND,  EXPRESS OR
-IMPLIED,  INCLUDING BUT  NOT  LIMITED TO  THE  WARRANTIES OF  MERCHANTABILITY,
-FITNESS FOR  A PARTICULAR PURPOSE AND  NONINFRINGEMENT. IN NO EVENT  SHALL THE
-AUTHORS  OR COPYRIGHT  HOLDERS  BE  LIABLE FOR  ANY  CLAIM,  DAMAGES OR  OTHER
-LIABILITY, WHETHER IN AN ACTION OF  CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
 #ifndef INCLUDE_NLOHMANN_JSON_HPP_
 #define INCLUDE_NLOHMANN_JSON_HPP_
 
@@ -110,62 +81,8 @@ SOFTWARE.
     #define JSON_INTERNAL_CATCH(exception) if(false)
 #endif
 
-// override exception macros
-#if defined(JSON_THROW_USER)
-    #undef JSON_THROW
-    #define JSON_THROW JSON_THROW_USER
-#endif
-#if defined(JSON_TRY_USER)
-    #undef JSON_TRY
-    #define JSON_TRY JSON_TRY_USER
-#endif
-#if defined(JSON_CATCH_USER)
-    #undef JSON_CATCH
-    #define JSON_CATCH JSON_CATCH_USER
-    #undef JSON_INTERNAL_CATCH
-    #define JSON_INTERNAL_CATCH JSON_CATCH_USER
-#endif
-#if defined(JSON_INTERNAL_CATCH_USER)
-    #undef JSON_INTERNAL_CATCH
-    #define JSON_INTERNAL_CATCH JSON_INTERNAL_CATCH_USER
-#endif
-
-// allow to override assert
-#if !defined(JSON_ASSERT)
-    #include <cassert> // assert
-    #define JSON_ASSERT(x) assert(x)
-#endif
-
-/*!
-@brief macro to briefly define a mapping between an enum and JSON
-@def NLOHMANN_JSON_SERIALIZE_ENUM
-@since version 3.4.0
-*/
-#define NLOHMANN_JSON_SERIALIZE_ENUM(ENUM_TYPE, ...)                                            \
-    template<typename BasicJsonType>                                                            \
-    inline void to_json(BasicJsonType& j, const ENUM_TYPE& e)                                   \
-    {                                                                                           \
-        static_assert(std::is_enum<ENUM_TYPE>::value, #ENUM_TYPE " must be an enum!");          \
-        static const std::pair<ENUM_TYPE, BasicJsonType> m[] = __VA_ARGS__;                     \
-        auto it = std::find_if(std::begin(m), std::end(m),                                      \
-                               [e](const std::pair<ENUM_TYPE, BasicJsonType>& ej_pair) -> bool  \
-        {                                                                                       \
-            return ej_pair.first == e;                                                          \
-        });                                                                                     \
-        j = ((it != std::end(m)) ? it : std::begin(m))->second;                                 \
-    }                                                                                           \
-    template<typename BasicJsonType>                                                            \
-    inline void from_json(const BasicJsonType& j, ENUM_TYPE& e)                                 \
-    {                                                                                           \
-        static_assert(std::is_enum<ENUM_TYPE>::value, #ENUM_TYPE " must be an enum!");          \
-        static const std::pair<ENUM_TYPE, BasicJsonType> m[] = __VA_ARGS__;                     \
-        auto it = std::find_if(std::begin(m), std::end(m),                                      \
-                               [&j](const std::pair<ENUM_TYPE, BasicJsonType>& ej_pair) -> bool \
-        {                                                                                       \
-            return ej_pair.second == j;                                                         \
-        });                                                                                     \
-        e = ((it != std::end(m)) ? it : std::begin(m))->first;                                  \
-    }
+#include <cassert> // assert
+#define JSON_ASSERT(x) assert(x)
 
 // Ugly macros to avoid uglier copy-paste when specializing basic_json. They
 // may be removed in the future once the class is split.
@@ -292,9 +209,6 @@ using is_detected = typename detector<nonesuch, void, Op, Args...>::value_t;
 template<template<class...> class Op, class... Args>
 using detected_t = typename detector<nonesuch, void, Op, Args...>::type;
 
-template<class Default, template<class...> class Op, class... Args>
-using detected_or = detector<Default, void, Op, Args...>;
-
 template<class Expected, template<class...> class Op, class... Args>
 using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
 
@@ -305,26 +219,14 @@ using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
 #ifndef INCLUDE_NLOHMANN_JSON_FWD_HPP_
 #define INCLUDE_NLOHMANN_JSON_FWD_HPP_
 
-#include <cstdint> // int64_t, uint64_t
-#include <map> // map
-#include <memory> // allocator
-#include <string> // string
-#include <vector> // vector
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
-/*!
-@brief namespace for Niels Lohmann
-@see https://github.com/nlohmann
-@since version 1.0.0
-*/
 namespace nlohmann
 {
-/*!
-@brief default JSONSerializer template argument
-
-This serializer ignores the template arguments and uses ADL
-([argument-dependent lookup](https://en.cppreference.com/w/cpp/language/adl))
-for serialization.
-*/
 template<typename T = void, typename SFINAE = void>
 struct adl_serializer;
 
@@ -341,26 +243,9 @@ template<template<typename U, typename V, typename... Args> class ObjectType =
          class BinaryType = std::vector<std::uint8_t>>
 class basic_json;
 
-/*!
-@brief default JSON class
-
-This type is the default specialization of the @ref basic_json class which
-uses the standard template types.
-
-@since version 1.0.0
-*/
-using json = basic_json<>;
-
 template<class Key, class T, class IgnoredLess, class Allocator>
 struct ordered_map;
 
-/*!
-@brief ordered JSON class
-
-This type preserves the insertion order of object keys.
-
-@since version 3.9.0
-*/
 using ordered_json = basic_json<nlohmann::ordered_map>;
 
 }  // namespace nlohmann
@@ -370,46 +255,12 @@ using ordered_json = basic_json<nlohmann::ordered_map>;
 
 namespace nlohmann
 {
-/*!
-@brief detail namespace with internal helper functions
-
-This namespace collects functions that should not be exposed,
-implementations of some @ref basic_json methods, and meta-programming helpers.
-
-@since version 2.1.0
-*/
 namespace detail
 {
-/////////////
-// helpers //
-/////////////
-
-// Note to maintainers:
-//
-// Every trait in this file expects a non CV-qualified type.
-// The only exceptions are in the 'aliases for detected' section
-// (i.e. those of the form: decltype(T::member_function(std::declval<T>())))
-//
-// In this case, T has to be properly CV-qualified to constraint the function arguments
-// (e.g. to_json(BasicJsonType&, const T&))
-
 template<typename> struct is_basic_json : std::false_type {};
 
 NLOHMANN_BASIC_JSON_TPL_DECLARATION
 struct is_basic_json<NLOHMANN_BASIC_JSON_TPL> : std::true_type {};
-
-//////////////////////////
-// aliases for detected //
-//////////////////////////
-
-template<typename T>
-using mapped_type_t = typename T::mapped_type;
-
-template<typename T>
-using key_type_t = typename T::key_type;
-
-template<typename T>
-using value_type_t = typename T::value_type;
 
 template<typename T, typename... Args>
 using to_json_function = decltype(T::to_json(std::declval<Args>()...));
@@ -423,16 +274,6 @@ using get_template_function = decltype(std::declval<T>().template get<U>());
 // trait checking if JSONSerializer<T>::from_json(json const&, udt&) exists
 template<typename BasicJsonType, typename T, typename = void>
 struct has_from_json : std::false_type {};
-
-// trait checking if j.get<T> is valid
-// use this trait instead of std::is_constructible or std::is_convertible,
-// both rely on, or make use of implicit conversions, and thus fail when T
-// has several constructors/operator= (see https://github.com/nlohmann/json/issues/958)
-template <typename BasicJsonType, typename T>
-struct is_getable
-{
-    static constexpr bool value = is_detected<get_template_function, const BasicJsonType&, T>::value;
-};
 
 template<typename BasicJsonType, typename T>
 struct has_from_json < BasicJsonType, T,
@@ -488,26 +329,6 @@ struct is_complete_type : std::false_type {};
 template<typename T>
 struct is_complete_type<T, decltype(void(sizeof(T)))> : std::true_type {};
 
-template<typename BasicJsonType, typename ConstructibleObjectType,
-         typename = void>
-struct is_constructible_object_type_impl : std::false_type {};
-
-template<typename BasicJsonType, typename CompatibleType, typename = void>
-struct is_compatible_type_impl: std::false_type {};
-
-template<typename BasicJsonType, typename CompatibleType>
-struct is_compatible_type_impl <
-    BasicJsonType, CompatibleType,
-    enable_if_t<is_complete_type<CompatibleType>::value >>
-{
-    static constexpr bool value =
-        has_to_json<BasicJsonType, CompatibleType>::value;
-};
-
-template<typename BasicJsonType, typename CompatibleType>
-struct is_compatible_type
-    : is_compatible_type_impl<BasicJsonType, CompatibleType> {};
-
 }  // namespace detail
 }  // namespace nlohmann
 
@@ -530,7 +351,6 @@ namespace detail
 enum class value_t : std::uint8_t
 {
     null,             ///< null value
-    object,           ///< object (unordered set of name/value pairs)
 };
 
 }  // namespace detail
@@ -565,15 +385,6 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
 template<typename, typename>
 struct adl_serializer
 {
-    /*!
-    @brief convert a JSON value to any value type
-
-    This function is usually called by the `get()` function of the
-    @ref basic_json class (either explicit or via conversion operators).
-
-    @param[in] j        JSON value to read from
-    @param[in,out] val  value to write to
-    */
     template<typename BasicJsonType, typename ValueType>
     static auto from_json(BasicJsonType&& j, ValueType& val) noexcept(
         noexcept(::nlohmann::from_json(std::forward<BasicJsonType>(j), val)))
@@ -684,37 +495,10 @@ class basic_json
           AllocatorType<std::pair<const StringType,
           basic_json>>>;
   private:
-
-    /// helper for exception-safe object creation
-    template<typename T, typename... Args>
-    static T* create(Args&& ... args)
-    {
-        AllocatorType<T> alloc;
-        using AllocatorTraits = std::allocator_traits<AllocatorType<T>>;
-
-        auto deleter = [&](T * object)
-        {
-            AllocatorTraits::deallocate(alloc, object, 1);
-        };
-        std::unique_ptr<T, decltype(deleter)> object(AllocatorTraits::allocate(alloc, 1), deleter);
-        AllocatorTraits::construct(alloc, object.get(), std::forward<Args>(args)...);
-        JSON_ASSERT(object != nullptr);
-        return object.release();
-    }
-
     union json_value
     {
         /// object (stored with pointer to save storage)
         object_t* object;
-
-        /// default constructor (for null values)
-        json_value() = default;
-
-        /// constructor for objects
-        json_value(const object_t& value)
-        {
-            object = create<object_t>(value);
-        }
     };
   public:
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -725,7 +509,6 @@ class basic_json
         std::is_nothrow_move_assignable<json_value>::value
     )
     {
-        // check that passed value is valid
         return *this;
     }
 
@@ -738,17 +521,7 @@ class basic_json
     ValueType get() const noexcept(noexcept(
                                        JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), std::declval<ValueType&>())))
     {
-        // we cannot static_assert on ValueTypeCV being non-const, because
-        // there is support for get<const basic_json_t>(), which is why we
-        // still need the uncvref
-        static_assert(!std::is_reference<ValueTypeCV>::value,
-                      "get() cannot be used with reference types, you might want to use get_ref()");
-        static_assert(std::is_default_constructible<ValueType>::value,
-                      "types must be DefaultConstructible when used with get()");
-
-        ValueType ret;
-        JSONSerializer<ValueType>::from_json(*this, ret);
-        return ret;
+        return ValueType();
     }
 
     constexpr const object_t* get_impl_ptr(const object_t* /*unused*/) const noexcept
@@ -756,29 +529,19 @@ class basic_json
         return nullptr;
     }
 
-    template<typename PointerType, typename std::enable_if<
-                 std::is_pointer<PointerType>::value, int>::type = 0>
-    auto get_ptr() noexcept -> decltype(std::declval<basic_json_t&>().get_impl_ptr(std::declval<PointerType>()))
-    {
-        // delegate the call to get_impl_ptr<>()
-        return get_impl_ptr(static_cast<PointerType>(nullptr));
-    }
-
     template < typename PointerType, typename std::enable_if <
                    std::is_pointer<PointerType>::value&&
                    std::is_const<typename std::remove_pointer<PointerType>::type>::value, int >::type = 0 >
     constexpr auto get_ptr() const noexcept -> decltype(std::declval<const basic_json_t&>().get_impl_ptr(std::declval<PointerType>()))
     {
-        // delegate the call to get_impl_ptr<>() const
-        return get_impl_ptr(static_cast<PointerType>(nullptr));
+        return static_cast<const object_t*>(nullptr);
     }
 
     template<typename PointerType, typename std::enable_if<
                  std::is_pointer<PointerType>::value, int>::type = 0>
     constexpr auto get() const noexcept -> decltype(std::declval<const basic_json_t&>().template get_ptr<PointerType>())
     {
-        // delegate the call to get_ptr
-        return get_ptr<PointerType>();
+        return PointerType();
     }
 
     template < typename ValueType, typename std::enable_if <
@@ -791,18 +554,10 @@ class basic_json
                    , int >::type = 0 >
     JSON_EXPLICIT operator ValueType() const
     {
-        // delegate the call to get<>() const
-        return get<ValueType>();
+        return ValueType();
     }
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   private:
-    //////////////////////
-    // member variables //
-    //////////////////////
-
-    /// the type of the current element
-    value_t m_type = value_t::null;
-
     /// the value of the current element
     json_value m_value = {};
 };

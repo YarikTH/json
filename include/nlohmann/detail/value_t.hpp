@@ -16,7 +16,6 @@ namespace detail
 enum class value_t : std::uint8_t
 {
     null,             ///< null value
-    object,           ///< object (unordered set of name/value pairs)
 };
 
 }  // namespace detail

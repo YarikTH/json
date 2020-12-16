@@ -35,15 +35,6 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
 template<typename, typename>
 struct adl_serializer
 {
-    /*!
-    @brief convert a JSON value to any value type
-
-    This function is usually called by the `get()` function of the
-    @ref basic_json class (either explicit or via conversion operators).
-
-    @param[in] j        JSON value to read from
-    @param[in,out] val  value to write to
-    */
     template<typename BasicJsonType, typename ValueType>
     static auto from_json(BasicJsonType&& j, ValueType& val) noexcept(
         noexcept(::nlohmann::from_json(std::forward<BasicJsonType>(j), val)))
