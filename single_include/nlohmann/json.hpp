@@ -1,44 +1,17 @@
-#ifndef INCLUDE_NLOHMANN_JSON_HPP_
-#define INCLUDE_NLOHMANN_JSON_HPP_
-
 #define NLOHMANN_JSON_VERSION_MAJOR 3
 #define NLOHMANN_JSON_VERSION_MINOR 9
 #define NLOHMANN_JSON_VERSION_PATCH 1
 
 #include <algorithm>
 #include <cstddef>
-#include <iosfwd>
-#include <memory>
 #include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
-
-// #include <nlohmann/adl_serializer.hpp>
-
-
-#include <utility>
-
-// #include <nlohmann/detail/macro_scope.hpp>
-
-
-#include <utility> // pair
-
-// This file contains all internal macro definitions
-// You MUST include macro_unscope.hpp at the end of json.hpp to undef all of them
-
-// exclude unsupported compilers
-#if !defined(JSON_SKIP_UNSUPPORTED_COMPILER_CHECK)
-    #if defined(__clang__)
-        #if (__clang_major__ * 10000 + __clang_minor__ * 100 + __clang_patchlevel__) < 30400
-            #error "unsupported Clang version - see https://github.com/nlohmann/json#supported-compilers"
-        #endif
-    #elif defined(__GNUC__) && !(defined(__ICC) || defined(__INTEL_COMPILER))
-        #if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) < 40800
-            #error "unsupported GCC version - see https://github.com/nlohmann/json#supported-compilers"
-        #endif
-    #endif
-#endif
+#include <cstdint>
+#include <map>
+#include <cassert>
+#include <type_traits>
 
 // C++ language standard detection
 #if (defined(__cplusplus) && __cplusplus >= 202002L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
@@ -78,11 +51,7 @@
     #define JSON_INTERNAL_CATCH(exception) if(false)
 #endif
 
-#include <cassert> // assert
 #define JSON_ASSERT(x) assert(x)
-
-// Ugly macros to avoid uglier copy-paste when specializing basic_json. They
-// may be removed in the future once the class is split.
 
 #define NLOHMANN_BASIC_JSON_TPL_DECLARATION                                \
     template<template<typename, typename, typename...> class ObjectType,   \
@@ -108,12 +77,6 @@
     #define JSON_EXPLICIT explicit
 #endif
 
-// #include <nlohmann/detail/meta/cpp_future.hpp>
-
-
-#include <cstddef>
-#include <type_traits>
-
 namespace nlohmann
 {
 namespace detail
@@ -135,25 +98,6 @@ template<typename T>
 constexpr T static_const<T>::value;
 }  // namespace detail
 }  // namespace nlohmann
-
-// #include <nlohmann/detail/meta/type_traits.hpp>
-
-
-#include <limits> // numeric_limits
-#include <type_traits> // false_type, is_constructible, is_integral, is_same, true_type
-#include <utility> // declval
-
-// #include <nlohmann/detail/macro_scope.hpp>
-
-// #include <nlohmann/detail/meta/cpp_future.hpp>
-
-// #include <nlohmann/detail/meta/detected.hpp>
-
-
-#include <type_traits>
-
-// #include <nlohmann/detail/meta/void_t.hpp>
-
 
 namespace nlohmann
 {
@@ -212,16 +156,6 @@ using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
 }  // namespace detail
 }  // namespace nlohmann
 
-// #include <nlohmann/json_fwd.hpp>
-#ifndef INCLUDE_NLOHMANN_JSON_FWD_HPP_
-#define INCLUDE_NLOHMANN_JSON_FWD_HPP_
-
-#include <cstdint>
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
-
 namespace nlohmann
 {
 template<typename T = void, typename SFINAE = void>
@@ -247,9 +181,6 @@ using ordered_json = basic_json<nlohmann::ordered_map>;
 
 }  // namespace nlohmann
 
-#endif  // INCLUDE_NLOHMANN_JSON_FWD_HPP_
-
-
 namespace nlohmann
 {
 namespace detail
@@ -266,7 +197,7 @@ template<typename T, typename U>
 using get_template_function = decltype(std::declval<T>().template get<U>());
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// Without this detection code is compiles
+// Without this detection code, sample compiles
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // trait checking if JSONSerializer<T>::from_json(json const&, udt&) exists
 template<typename BasicJsonType, typename T, typename = void>
@@ -287,22 +218,10 @@ struct has_from_json < BasicJsonType, T,
 }  // namespace detail
 }  // namespace nlohmann
 
-// #include <nlohmann/detail/value_t.hpp>
-
-
-#include <array> // array
-#include <cstddef> // size_t
-#include <cstdint> // uint8_t
-#include <string> // string
-
 namespace nlohmann
 {
 namespace detail
 {
-///////////////////////////
-// JSON type enumeration //
-///////////////////////////
-
 enum class value_t : std::uint8_t
 {
     null,             ///< null value
@@ -351,24 +270,6 @@ struct adl_serializer
 
 }  // namespace nlohmann
 
-// #include <nlohmann/detail/macro_scope.hpp>
-
-// #include <nlohmann/detail/meta/cpp_future.hpp>
-
-// #include <nlohmann/detail/meta/type_traits.hpp>
-
-// #include <nlohmann/detail/value_t.hpp>
-
-// #include <nlohmann/json_fwd.hpp>
-
-// #include <nlohmann/ordered_map.hpp>
-
-
-#include <functional> // less
-#include <memory> // allocator
-#include <utility> // pair
-#include <vector> // vector
-
 namespace nlohmann
 {
 
@@ -401,11 +302,7 @@ class basic_json
     using value_t = detail::value_t;
     template<typename T, typename SFINAE>
     using json_serializer = JSONSerializer<T, SFINAE>;
-
-    /////////////////////
-    // container types //
-    /////////////////////
-
+    
     /// the type of elements in a basic_json container
     using value_type = basic_json;
 
@@ -435,7 +332,9 @@ class basic_json
         object_t* object;
     };
   public:
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // Without this code, sample compiles
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     basic_json& operator=(basic_json other) noexcept (
         std::is_nothrow_move_constructible<value_t>::value&&
         std::is_nothrow_move_assignable<value_t>::value&&
@@ -496,9 +395,6 @@ class basic_json
 };
 } // namespace nlohmann
 
-// #include <nlohmann/detail/macro_unscope.hpp>
-
-
 // restore GCC/clang diagnostic settings
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
     #pragma GCC diagnostic pop
@@ -518,6 +414,3 @@ class basic_json
 #undef NLOHMANN_BASIC_JSON_TPL_DECLARATION
 #undef NLOHMANN_BASIC_JSON_TPL
 #undef JSON_EXPLICIT
-
-
-#endif  // INCLUDE_NLOHMANN_JSON_HPP_
