@@ -47,7 +47,6 @@ SOFTWARE.
 #include <vector> // vector
 
 #include <nlohmann/adl_serializer.hpp>
-#include <nlohmann/byte_container_with_subtype.hpp>
 #include <nlohmann/detail/conversions/from_json.hpp>
 #include <nlohmann/detail/conversions/to_json.hpp>
 #include <nlohmann/detail/exceptions.hpp>
@@ -759,78 +758,6 @@ class basic_json
     */
     using number_float_t = NumberFloatType;
 
-    /*!
-    @brief a type for a packed binary type
-
-    This type is a type designed to carry binary data that appears in various
-    serialized formats, such as CBOR's Major Type 2, MessagePack's bin, and
-    BSON's generic binary subtype. This type is NOT a part of standard JSON and
-    exists solely for compatibility with these binary types. As such, it is
-    simply defined as an ordered sequence of zero or more byte values.
-
-    Additionally, as an implementation detail, the subtype of the binary data is
-    carried around as a `std::uint8_t`, which is compatible with both of the
-    binary data formats that use binary subtyping, (though the specific
-    numbering is incompatible with each other, and it is up to the user to
-    translate between them).
-
-    [CBOR's RFC 7049](https://tools.ietf.org/html/rfc7049) describes this type
-    as:
-    > Major type 2: a byte string. The string's length in bytes is represented
-    > following the rules for positive integers (major type 0).
-
-    [MessagePack's documentation on the bin type
-    family](https://github.com/msgpack/msgpack/blob/master/spec.md#bin-format-family)
-    describes this type as:
-    > Bin format family stores an byte array in 2, 3, or 5 bytes of extra bytes
-    > in addition to the size of the byte array.
-
-    [BSON's specifications](http://bsonspec.org/spec.html) describe several
-    binary types; however, this type is intended to represent the generic binary
-    type which has the description:
-    > Generic binary subtype - This is the most commonly used binary subtype and
-    > should be the 'default' for drivers and tools.
-
-    None of these impose any limitations on the internal representation other
-    than the basic unit of storage be some type of array whose parts are
-    decomposable into bytes.
-
-    The default representation of this binary format is a
-    `std::vector<std::uint8_t>`, which is a very common way to represent a byte
-    array in modern C++.
-
-    #### Default type
-
-    The default values for @a BinaryType is `std::vector<std::uint8_t>`
-
-    #### Storage
-
-    Binary Arrays are stored as pointers in a @ref basic_json type. That is,
-    for any access to array values, a pointer of the type `binary_t*` must be
-    dereferenced.
-
-    #### Notes on subtypes
-
-    - CBOR
-       - Binary values are represented as byte strings. No subtypes are
-         supported and will be ignored when CBOR is written.
-    - MessagePack
-       - If a subtype is given and the binary array contains exactly 1, 2, 4, 8,
-         or 16 elements, the fixext family (fixext1, fixext2, fixext4, fixext8)
-         is used. For other sizes, the ext family (ext8, ext16, ext32) is used.
-         The subtype is then added as singed 8-bit integer.
-       - If no subtype is given, the bin family (bin8, bin16, bin32) is used.
-    - BSON
-       - If a subtype is given, it is used and added as unsigned 8-bit integer.
-       - If no subtype is given, the generic binary subtype 0x00 is used.
-
-    @sa @ref binary -- create a binary array
-
-    @since version 3.8.0
-    */
-    using binary_t = nlohmann::byte_container_with_subtype<BinaryType>;
-    /// @}
-
   private:
 
     /// helper for exception-safe object creation
@@ -888,8 +815,6 @@ class basic_json
         array_t* array;
         /// string (stored with pointer to save storage)
         string_t* string;
-        /// binary (stored with pointer to save storage)
-        binary_t* binary;
         /// boolean
         boolean_t boolean;
         /// number (integer)
@@ -929,12 +854,6 @@ class basic_json
                 case value_t::string:
                 {
                     string = create<string_t>("");
-                    break;
-                }
-
-                case value_t::binary:
-                {
-                    binary = create<binary_t>();
                     break;
                 }
 
@@ -1016,30 +935,6 @@ class basic_json
             array = create<array_t>(std::move(value));
         }
 
-        /// constructor for binary arrays
-        json_value(const typename binary_t::container_type& value)
-        {
-            binary = create<binary_t>(value);
-        }
-
-        /// constructor for rvalue binary arrays
-        json_value(typename binary_t::container_type&& value)
-        {
-            binary = create<binary_t>(std::move(value));
-        }
-
-        /// constructor for binary arrays (internal type)
-        json_value(const binary_t& value)
-        {
-            binary = create<binary_t>(value);
-        }
-
-        /// constructor for rvalue binary arrays (internal type)
-        json_value(binary_t&& value)
-        {
-            binary = create<binary_t>(std::move(value));
-        }
-
         void destroy(value_t t) noexcept
         {
             // flatten the current json_value to a heap-allocated stack
@@ -1117,9 +1012,6 @@ class basic_json
 
                 case value_t::binary:
                 {
-                    AllocatorType<binary_t> alloc;
-                    std::allocator_traits<decltype(alloc)>::destroy(alloc, binary);
-                    std::allocator_traits<decltype(alloc)>::deallocate(alloc, binary, 1);
                     break;
                 }
 
@@ -1145,7 +1037,6 @@ class basic_json
         JSON_ASSERT(m_type != value_t::object || m_value.object != nullptr);
         JSON_ASSERT(m_type != value_t::array || m_value.array != nullptr);
         JSON_ASSERT(m_type != value_t::string || m_value.string != nullptr);
-        JSON_ASSERT(m_type != value_t::binary || m_value.binary != nullptr);
     }
 
   public:
@@ -1495,99 +1386,6 @@ class basic_json
         }
 
         assert_invariant();
-    }
-
-    /*!
-    @brief explicitly create a binary array (without subtype)
-
-    Creates a JSON binary array value from a given binary container. Binary
-    values are part of various binary formats, such as CBOR, MessagePack, and
-    BSON. This constructor is used to create a value for serialization to those
-    formats.
-
-    @note Note, this function exists because of the difficulty in correctly
-    specifying the correct template overload in the standard value ctor, as both
-    JSON arrays and JSON binary arrays are backed with some form of a
-    `std::vector`. Because JSON binary arrays are a non-standard extension it
-    was decided that it would be best to prevent automatic initialization of a
-    binary array type, for backwards compatibility and so it does not happen on
-    accident.
-
-    @param[in] init container containing bytes to use as binary type
-
-    @return JSON binary array value
-
-    @complexity Linear in the size of @a init.
-
-    @exceptionsafety Strong guarantee: if an exception is thrown, there are no
-    changes to any JSON value.
-
-    @since version 3.8.0
-    */
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    static basic_json binary(const typename binary_t::container_type& init)
-    {
-        auto res = basic_json();
-        res.m_type = value_t::binary;
-        res.m_value = init;
-        return res;
-    }
-
-    /*!
-    @brief explicitly create a binary array (with subtype)
-
-    Creates a JSON binary array value from a given binary container. Binary
-    values are part of various binary formats, such as CBOR, MessagePack, and
-    BSON. This constructor is used to create a value for serialization to those
-    formats.
-
-    @note Note, this function exists because of the difficulty in correctly
-    specifying the correct template overload in the standard value ctor, as both
-    JSON arrays and JSON binary arrays are backed with some form of a
-    `std::vector`. Because JSON binary arrays are a non-standard extension it
-    was decided that it would be best to prevent automatic initialization of a
-    binary array type, for backwards compatibility and so it does not happen on
-    accident.
-
-    @param[in] init container containing bytes to use as binary type
-    @param[in] subtype subtype to use in MessagePack and BSON
-
-    @return JSON binary array value
-
-    @complexity Linear in the size of @a init.
-
-    @exceptionsafety Strong guarantee: if an exception is thrown, there are no
-    changes to any JSON value.
-
-    @since version 3.8.0
-    */
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    static basic_json binary(const typename binary_t::container_type& init, std::uint8_t subtype)
-    {
-        auto res = basic_json();
-        res.m_type = value_t::binary;
-        res.m_value = binary_t(init, subtype);
-        return res;
-    }
-
-    /// @copydoc binary(const typename binary_t::container_type&)
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    static basic_json binary(typename binary_t::container_type&& init)
-    {
-        auto res = basic_json();
-        res.m_type = value_t::binary;
-        res.m_value = std::move(init);
-        return res;
-    }
-
-    /// @copydoc binary(const typename binary_t::container_type&, std::uint8_t)
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    static basic_json binary(typename binary_t::container_type&& init, std::uint8_t subtype)
-    {
-        auto res = basic_json();
-        res.m_type = value_t::binary;
-        res.m_value = binary_t(std::move(init), subtype);
-        return res;
     }
 
     /*!
@@ -2414,18 +2212,6 @@ class basic_json
         return is_number_float() ? &m_value.number_float : nullptr;
     }
 
-    /// get a pointer to the value (binary)
-    binary_t* get_impl_ptr(binary_t* /*unused*/) noexcept
-    {
-        return is_binary() ? m_value.binary : nullptr;
-    }
-
-    /// get a pointer to the value (binary)
-    constexpr const binary_t* get_impl_ptr(const binary_t* /*unused*/) const noexcept
-    {
-        return is_binary() ? m_value.binary : nullptr;
-    }
-
     /*!
     @brief helper function to implement get_ref()
 
@@ -2861,36 +2647,6 @@ class basic_json
     {
         // delegate the call to get<>() const
         return get<ValueType>();
-    }
-
-    /*!
-    @return reference to the binary value
-
-    @throw type_error.302 if the value is not binary
-
-    @sa @ref is_binary() to check if the value is binary
-
-    @since version 3.8.0
-    */
-    binary_t& get_binary()
-    {
-        if (!is_binary())
-        {
-            JSON_THROW(type_error::create(302, "type must be binary, but is " + std::string(type_name())));
-        }
-
-        return *get_ptr<binary_t*>();
-    }
-
-    /// @copydoc get_binary()
-    const binary_t& get_binary() const
-    {
-        if (!is_binary())
-        {
-            JSON_THROW(type_error::create(302, "type must be binary, but is " + std::string(type_name())));
-        }
-
-        return *get_ptr<const binary_t*>();
     }
 
     /// @}
@@ -4384,55 +4140,6 @@ class basic_json
             JSON_THROW(type_error::create(310, "cannot use swap() with " + std::string(type_name())));
         }
     }
-
-    /*!
-    @brief exchanges the values
-
-    Exchanges the contents of a JSON string with those of @a other. Does not
-    invoke any move, copy, or swap operations on individual elements. All
-    iterators and references remain valid. The past-the-end iterator is
-    invalidated.
-
-    @param[in,out] other binary to exchange the contents with
-
-    @throw type_error.310 when JSON value is not a string; example: `"cannot
-    use swap() with boolean"`
-
-    @complexity Constant.
-
-    @liveexample{The example below shows how strings can be swapped with
-    `swap()`.,swap__binary_t}
-
-    @since version 3.8.0
-    */
-    void swap(binary_t& other)
-    {
-        // swap only works for strings
-        if (JSON_HEDLEY_LIKELY(is_binary()))
-        {
-            std::swap(*(m_value.binary), other);
-        }
-        else
-        {
-            JSON_THROW(type_error::create(310, "cannot use swap() with " + std::string(type_name())));
-        }
-    }
-
-    /// @copydoc swap(binary_t)
-    void swap(typename binary_t::container_type& other)
-    {
-        // swap only works for strings
-        if (JSON_HEDLEY_LIKELY(is_binary()))
-        {
-            std::swap(*(m_value.binary), other);
-        }
-        else
-        {
-            JSON_THROW(type_error::create(310, "cannot use swap() with " + std::string(type_name())));
-        }
-    }
-
-    /// @}
 
   public:
     //////////////////////////////////////////
