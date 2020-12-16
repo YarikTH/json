@@ -57,8 +57,6 @@ SOFTWARE.
 #include <nlohmann/detail/macro_scope.hpp>
 #include <nlohmann/detail/meta/cpp_future.hpp>
 #include <nlohmann/detail/meta/type_traits.hpp>
-#include <nlohmann/detail/output/output_adapters.hpp>
-#include <nlohmann/detail/output/serializer.hpp>
 #include <nlohmann/detail/value_t.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <nlohmann/ordered_map.hpp>
@@ -162,24 +160,14 @@ class basic_json
     template<detail::value_t> friend struct detail::external_constructor;
     friend ::nlohmann::json_pointer<basic_json>;
 
-    friend ::nlohmann::detail::serializer<basic_json>;
-
     /// workaround type for MSVC
     using basic_json_t = NLOHMANN_BASIC_JSON_TPL;
-
-    template<typename CharType>
-    using output_adapter_t = ::nlohmann::detail::output_adapter_t<CharType>;
-
-    using serializer = ::nlohmann::detail::serializer<basic_json>;
-
   public:
     using value_t = detail::value_t;
     /// JSON Pointer, see @ref nlohmann::json_pointer
     using json_pointer = ::nlohmann::json_pointer<basic_json>;
     template<typename T, typename SFINAE>
     using json_serializer = JSONSerializer<T, SFINAE>;
-    /// how to treat decoding errors
-    using error_handler_t = detail::error_handler_t;
     /// helper type for initializer lists of basic_json values
     using initializer_list_t = std::initializer_list<detail::json_ref<basic_json>>;
 
@@ -1927,73 +1915,6 @@ class basic_json
     /// @name object inspection
     /// Functions to inspect the type of a JSON value.
     /// @{
-
-    /*!
-    @brief serialization
-
-    Serialization function for JSON values. The function tries to mimic
-    Python's `json.dumps()` function, and currently supports its @a indent
-    and @a ensure_ascii parameters.
-
-    @param[in] indent If indent is nonnegative, then array elements and object
-    members will be pretty-printed with that indent level. An indent level of
-    `0` will only insert newlines. `-1` (the default) selects the most compact
-    representation.
-    @param[in] indent_char The character to use for indentation if @a indent is
-    greater than `0`. The default is ` ` (space).
-    @param[in] ensure_ascii If @a ensure_ascii is true, all non-ASCII characters
-    in the output are escaped with `\uXXXX` sequences, and the result consists
-    of ASCII characters only.
-    @param[in] error_handler  how to react on decoding errors; there are three
-    possible values: `strict` (throws and exception in case a decoding error
-    occurs; default), `replace` (replace invalid UTF-8 sequences with U+FFFD),
-    and `ignore` (ignore invalid UTF-8 sequences during serialization; all
-    bytes are copied to the output unchanged).
-
-    @return string containing the serialization of the JSON value
-
-    @throw type_error.316 if a string stored inside the JSON value is not
-                          UTF-8 encoded and @a error_handler is set to strict
-
-    @note Binary values are serialized as object containing two keys:
-      - "bytes": an array of bytes as integers
-      - "subtype": the subtype as integer or "null" if the binary has no subtype
-
-    @complexity Linear.
-
-    @exceptionsafety Strong guarantee: if an exception is thrown, there are no
-    changes in the JSON value.
-
-    @liveexample{The following example shows the effect of different @a indent\,
-    @a indent_char\, and @a ensure_ascii parameters to the result of the
-    serialization.,dump}
-
-    @see https://docs.python.org/2/library/json.html#json.dump
-
-    @since version 1.0.0; indentation character @a indent_char, option
-           @a ensure_ascii and exceptions added in version 3.0.0; error
-           handlers added in version 3.4.0; serialization of binary values added
-           in version 3.8.0.
-    */
-    string_t dump(const int indent = -1,
-                  const char indent_char = ' ',
-                  const bool ensure_ascii = false,
-                  const error_handler_t error_handler = error_handler_t::strict) const
-    {
-        string_t result;
-        serializer s(detail::output_adapter<char, string_t>(result), indent_char, error_handler);
-
-        if (indent >= 0)
-        {
-            s.dump(*this, true, ensure_ascii, static_cast<unsigned int>(indent));
-        }
-        else
-        {
-            s.dump(*this, false, ensure_ascii, 0);
-        }
-
-        return result;
-    }
 
     /*!
     @brief return the type of the JSON value (explicit)
@@ -4971,76 +4892,6 @@ class basic_json
     }
 
     /// @}
-
-    ///////////////////
-    // serialization //
-    ///////////////////
-
-    /// @name serialization
-    /// @{
-
-    /*!
-    @brief serialize to stream
-
-    Serialize the given JSON value @a j to the output stream @a o. The JSON
-    value will be serialized using the @ref dump member function.
-
-    - The indentation of the output can be controlled with the member variable
-      `width` of the output stream @a o. For instance, using the manipulator
-      `std::setw(4)` on @a o sets the indentation level to `4` and the
-      serialization result is the same as calling `dump(4)`.
-
-    - The indentation character can be controlled with the member variable
-      `fill` of the output stream @a o. For instance, the manipulator
-      `std::setfill('\\t')` sets indentation to use a tab character rather than
-      the default space character.
-
-    @param[in,out] o  stream to serialize to
-    @param[in] j  JSON value to serialize
-
-    @return the stream @a o
-
-    @throw type_error.316 if a string stored inside the JSON value is not
-                          UTF-8 encoded
-
-    @complexity Linear.
-
-    @liveexample{The example below shows the serialization with different
-    parameters to `width` to adjust the indentation level.,operator_serialize}
-
-    @since version 1.0.0; indentation character added in version 3.0.0
-    */
-    friend std::ostream& operator<<(std::ostream& o, const basic_json& j)
-    {
-        // read width member and use it as indentation parameter if nonzero
-        const bool pretty_print = o.width() > 0;
-        const auto indentation = pretty_print ? o.width() : 0;
-
-        // reset width to 0 for subsequent calls to this stream
-        o.width(0);
-
-        // do the actual serialization
-        serializer s(detail::output_adapter<char>(o), o.fill());
-        s.dump(j, pretty_print, false, static_cast<unsigned int>(indentation));
-        return o;
-    }
-
-    /*!
-    @brief serialize to stream
-    @deprecated This stream operator is deprecated and will be removed in
-                future 4.0.0 of the library. Please use
-                @ref operator<<(std::ostream&, const basic_json&)
-                instead; that is, replace calls like `j >> o;` with `o << j;`.
-    @since version 1.0.0; deprecated since version 3.0.0
-    */
-    JSON_HEDLEY_DEPRECATED_FOR(3.0.0, operator<<(std::ostream&, const basic_json&))
-    friend std::ostream& operator>>(const basic_json& j, std::ostream& o)
-    {
-        return o << j;
-    }
-
-    /// @}
-
 
     /////////////////////
     // deserialization //
