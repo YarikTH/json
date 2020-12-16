@@ -672,9 +672,6 @@ class basic_json
 
     /// the type of an element pointer
     using pointer = typename std::allocator_traits<allocator_type>::pointer;
-    /// the type of an element const pointer
-    using const_pointer = typename std::allocator_traits<allocator_type>::const_pointer;
-
     /// @}
 
 #if defined(JSON_HAS_CPP_14)
@@ -689,9 +686,6 @@ class basic_json
           object_comparator_t,
           AllocatorType<std::pair<const StringType,
           basic_json>>>;
-
-    //using array_t = ArrayType<basic_json, AllocatorType<basic_json>>;
-
   private:
 
     /// helper for exception-safe object creation
@@ -718,30 +712,6 @@ class basic_json
 
         /// default constructor (for null values)
         json_value() = default;
-        /// constructor for empty values of a given type
-        json_value(value_t t)
-        {
-            switch (t)
-            {
-                case value_t::object:
-                {
-                    object = create<object_t>();
-                    break;
-                }
-
-                case value_t::null:
-                {
-                    object = nullptr;  // silence warning, see #821
-                    break;
-                }
-
-                default:
-                {
-                    object = nullptr;  // silence warning, see #821
-                    break;
-                }
-            }
-        }
 
         /// constructor for objects
         json_value(const object_t& value)
@@ -754,73 +724,7 @@ class basic_json
         {
             object = create<object_t>(std::move(value));
         }
-
-        void destroy(value_t t) noexcept
-        {
-            // flatten the current json_value to a heap-allocated stack
-            std::vector<basic_json> stack;
-
-            // move the top-level items to stack
-            if (t == value_t::object)
-            {
-                stack.reserve(object->size());
-                for (auto&& it : *object)
-                {
-                    stack.push_back(std::move(it.second));
-                }
-            }
-
-            while (!stack.empty())
-            {
-                // move the last item to local variable to be processed
-                basic_json current_item(std::move(stack.back()));
-                stack.pop_back();
-
-                // if current_item is array/object, move
-                // its children to the stack to be processed later
-                if (current_item.is_array())
-                {
-                    std::move(current_item.m_value.array->begin(), current_item.m_value.array->end(),
-                              std::back_inserter(stack));
-
-                    current_item.m_value.array->clear();
-                }
-                else if (current_item.is_object())
-                {
-                    for (auto&& it : *current_item.m_value.object)
-                    {
-                        stack.push_back(std::move(it.second));
-                    }
-
-                    current_item.m_value.object->clear();
-                }
-
-                // it's now safe that current_item get destructed
-                // since it doesn't have any children
-            }
-
-            switch (t)
-            {
-                case value_t::object:
-                {
-                    AllocatorType<object_t> alloc;
-                    std::allocator_traits<decltype(alloc)>::destroy(alloc, object);
-                    std::allocator_traits<decltype(alloc)>::deallocate(alloc, object, 1);
-                    break;
-                }
-
-                default:
-                {
-                    break;
-                }
-            }
-        }
     };
-
-    void assert_invariant() const noexcept
-    {
-        JSON_ASSERT(m_type != value_t::object || m_value.object != nullptr);
-    }
 
   public:
     //////////////////
@@ -830,70 +734,11 @@ class basic_json
     basic_json(const value_t v)
         : m_type(v), m_value(v)
     {
-        assert_invariant();
     }
 
     basic_json(std::nullptr_t = nullptr) noexcept
         : basic_json(value_t::null)
     {
-        assert_invariant();
-    }
-
-    template < typename CompatibleType,
-               typename U = detail::uncvref_t<CompatibleType>,
-               detail::enable_if_t <
-                   !detail::is_basic_json<U>::value && detail::is_compatible_type<basic_json_t, U>::value, int > = 0 >
-    basic_json(CompatibleType && val) noexcept(noexcept(
-                JSONSerializer<U>::to_json(std::declval<basic_json_t&>(),
-                                           std::forward<CompatibleType>(val))))
-    {
-        JSONSerializer<U>::to_json(*this, std::forward<CompatibleType>(val));
-        assert_invariant();
-    }
-
-    template < typename BasicJsonType,
-               detail::enable_if_t <
-                   detail::is_basic_json<BasicJsonType>::value&& !std::is_same<basic_json, BasicJsonType>::value, int > = 0 >
-    basic_json(const BasicJsonType& val)
-    {
-        using other_object_t = typename BasicJsonType::object_t;
-        using other_array_t = typename BasicJsonType::array_t;
-
-        switch (val.type())
-        {
-            case value_t::object:
-                JSONSerializer<other_object_t>::to_json(*this, val.template get_ref<const other_object_t&>());
-                break;
-            case value_t::null:
-                *this = nullptr;
-                break;
-            default:            // LCOV_EXCL_LINE
-                JSON_ASSERT(false);  // LCOV_EXCL_LINE
-        }
-        assert_invariant();
-    }
-
-    ///////////////////////////////////////
-    // other constructors and destructor //
-    ///////////////////////////////////////
-    basic_json& operator=(basic_json other) noexcept (
-        std::is_nothrow_move_constructible<value_t>::value&&
-        std::is_nothrow_move_assignable<value_t>::value&&
-        std::is_nothrow_move_constructible<json_value>::value&&
-        std::is_nothrow_move_assignable<json_value>::value
-    )
-    {
-        // check that passed value is valid
-        other.assert_invariant();
-
-        assert_invariant();
-        return *this;
-    }
-
-    ~basic_json() noexcept
-    {
-        assert_invariant();
-        m_value.destroy(m_type);
     }
 
     /// @}
@@ -905,16 +750,6 @@ class basic_json
     constexpr value_t type() const noexcept
     {
         return m_type;
-    }
-
-    constexpr bool is_primitive() const noexcept
-    {
-        return is_null();
-    }
-
-    constexpr bool is_structured() const noexcept
-    {
-        return is_object();
     }
 
     constexpr bool is_null() const noexcept
@@ -953,6 +788,17 @@ class basic_json
 
   public:
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    basic_json& operator=(basic_json other) noexcept (
+        std::is_nothrow_move_constructible<value_t>::value&&
+        std::is_nothrow_move_assignable<value_t>::value&&
+        std::is_nothrow_move_constructible<json_value>::value&&
+        std::is_nothrow_move_assignable<json_value>::value
+    )
+    {
+        // check that passed value is valid
+        return *this;
+    }
+
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t <
                    !detail::is_basic_json<ValueType>::value &&
@@ -1014,24 +860,6 @@ class basic_json
         return get<ValueType>();
     }
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  public:
-    const char* type_name() const noexcept
-    {
-        {
-            switch (m_type)
-            {
-                case value_t::null:
-                    return "null";
-                case value_t::object:
-                    return "object";
-                default:
-                    return "number";
-            }
-        }
-    }
-
-
   private:
     //////////////////////
     // member variables //
