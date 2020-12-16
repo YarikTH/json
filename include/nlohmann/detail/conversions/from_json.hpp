@@ -32,36 +32,6 @@ void from_json(const BasicJsonType& j, typename std::nullptr_t& n)
     n = nullptr;
 }
 
-// overloads for basic_json template parameters
-template < typename BasicJsonType, typename ArithmeticType,
-           enable_if_t < std::is_arithmetic<ArithmeticType>::value&&
-                         !std::is_same<ArithmeticType, typename BasicJsonType::boolean_t>::value,
-                         int > = 0 >
-void get_arithmetic_value(const BasicJsonType& j, ArithmeticType& val)
-{
-    switch (static_cast<value_t>(j))
-    {
-        case value_t::number_unsigned:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::number_unsigned_t*>());
-            break;
-        }
-        case value_t::number_integer:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::number_integer_t*>());
-            break;
-        }
-        case value_t::number_float:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::number_float_t*>());
-            break;
-        }
-
-        default:
-            JSON_THROW(type_error::create(302, "type must be number, but is " + std::string(j.type_name())));
-    }
-}
-
 template<typename BasicJsonType>
 void from_json(const BasicJsonType& j, typename BasicJsonType::boolean_t& b)
 {
@@ -279,48 +249,6 @@ void from_json(const BasicJsonType& j, ConstructibleObjectType& obj)
         return value_type(p.first, p.second.template get<typename ConstructibleObjectType::mapped_type>());
     });
     obj = std::move(ret);
-}
-
-// overload for arithmetic types, not chosen for basic_json template arguments
-// (BooleanType, etc..); note: Is it really necessary to provide explicit
-// overloads for boolean_t etc. in case of a custom BooleanType which is not
-// an arithmetic type?
-template < typename BasicJsonType, typename ArithmeticType,
-           enable_if_t <
-               std::is_arithmetic<ArithmeticType>::value&&
-               !std::is_same<ArithmeticType, typename BasicJsonType::number_unsigned_t>::value&&
-               !std::is_same<ArithmeticType, typename BasicJsonType::number_integer_t>::value&&
-               !std::is_same<ArithmeticType, typename BasicJsonType::number_float_t>::value&&
-               !std::is_same<ArithmeticType, typename BasicJsonType::boolean_t>::value,
-               int > = 0 >
-void from_json(const BasicJsonType& j, ArithmeticType& val)
-{
-    switch (static_cast<value_t>(j))
-    {
-        case value_t::number_unsigned:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::number_unsigned_t*>());
-            break;
-        }
-        case value_t::number_integer:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::number_integer_t*>());
-            break;
-        }
-        case value_t::number_float:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::number_float_t*>());
-            break;
-        }
-        case value_t::boolean:
-        {
-            val = static_cast<ArithmeticType>(*j.template get_ptr<const typename BasicJsonType::boolean_t*>());
-            break;
-        }
-
-        default:
-            JSON_THROW(type_error::create(302, "type must be number, but is " + std::string(j.type_name())));
-    }
 }
 
 template<typename BasicJsonType, typename A1, typename A2>

@@ -219,30 +219,6 @@ class basic_json
                     break;
                 }
 
-                case value_t::boolean:
-                {
-                    boolean = boolean_t(false);
-                    break;
-                }
-
-                case value_t::number_integer:
-                {
-                    number_integer = number_integer_t(0);
-                    break;
-                }
-
-                case value_t::number_unsigned:
-                {
-                    number_unsigned = number_unsigned_t(0);
-                    break;
-                }
-
-                case value_t::number_float:
-                {
-                    number_float = number_float_t(0.0);
-                    break;
-                }
-
                 case value_t::null:
                 {
                     object = nullptr;  // silence warning, see #821
@@ -372,11 +348,6 @@ class basic_json
                     break;
                 }
 
-                case value_t::binary:
-                {
-                    break;
-                }
-
                 default:
                 {
                     break;
@@ -426,29 +397,12 @@ class basic_json
                    detail::is_basic_json<BasicJsonType>::value&& !std::is_same<basic_json, BasicJsonType>::value, int > = 0 >
     basic_json(const BasicJsonType& val)
     {
-        using other_boolean_t = typename BasicJsonType::boolean_t;
-        using other_number_float_t = typename BasicJsonType::number_float_t;
-        using other_number_integer_t = typename BasicJsonType::number_integer_t;
-        using other_number_unsigned_t = typename BasicJsonType::number_unsigned_t;
         using other_string_t = typename BasicJsonType::string_t;
         using other_object_t = typename BasicJsonType::object_t;
         using other_array_t = typename BasicJsonType::array_t;
-        using other_binary_t = typename BasicJsonType::binary_t;
 
         switch (val.type())
         {
-            case value_t::boolean:
-                JSONSerializer<other_boolean_t>::to_json(*this, val.template get<other_boolean_t>());
-                break;
-            case value_t::number_float:
-                JSONSerializer<other_number_float_t>::to_json(*this, val.template get<other_number_float_t>());
-                break;
-            case value_t::number_integer:
-                JSONSerializer<other_number_integer_t>::to_json(*this, val.template get<other_number_integer_t>());
-                break;
-            case value_t::number_unsigned:
-                JSONSerializer<other_number_unsigned_t>::to_json(*this, val.template get<other_number_unsigned_t>());
-                break;
             case value_t::string:
                 JSONSerializer<other_string_t>::to_json(*this, val.template get_ref<const other_string_t&>());
                 break;
@@ -458,14 +412,8 @@ class basic_json
             case value_t::array:
                 JSONSerializer<other_array_t>::to_json(*this, val.template get_ref<const other_array_t&>());
                 break;
-            case value_t::binary:
-                JSONSerializer<other_binary_t>::to_json(*this, val.template get_ref<const other_binary_t&>());
-                break;
             case value_t::null:
                 *this = nullptr;
-                break;
-            case value_t::discarded:
-                m_type = value_t::discarded;
                 break;
             default:            // LCOV_EXCL_LINE
                 JSON_ASSERT(false);  // LCOV_EXCL_LINE
@@ -518,36 +466,6 @@ class basic_json
             case value_t::string:
             {
                 m_value = *other.m_value.string;
-                break;
-            }
-
-            case value_t::boolean:
-            {
-                m_value = other.m_value.boolean;
-                break;
-            }
-
-            case value_t::number_integer:
-            {
-                m_value = other.m_value.number_integer;
-                break;
-            }
-
-            case value_t::number_unsigned:
-            {
-                m_value = other.m_value.number_unsigned;
-                break;
-            }
-
-            case value_t::number_float:
-            {
-                m_value = other.m_value.number_float;
-                break;
-            }
-
-            case value_t::binary:
-            {
-                m_value = *other.m_value.binary;
                 break;
             }
 
@@ -609,7 +527,7 @@ class basic_json
 
     constexpr bool is_primitive() const noexcept
     {
-        return is_null() || is_string() || is_boolean() || is_number() || is_binary();
+        return is_null() || is_string();
     }
 
     constexpr bool is_structured() const noexcept
@@ -620,31 +538,6 @@ class basic_json
     constexpr bool is_null() const noexcept
     {
         return m_type == value_t::null;
-    }
-
-    constexpr bool is_boolean() const noexcept
-    {
-        return m_type == value_t::boolean;
-    }
-
-    constexpr bool is_number() const noexcept
-    {
-        return is_number_integer() || is_number_float();
-    }
-
-    constexpr bool is_number_integer() const noexcept
-    {
-        return m_type == value_t::number_integer || m_type == value_t::number_unsigned;
-    }
-
-    constexpr bool is_number_unsigned() const noexcept
-    {
-        return m_type == value_t::number_unsigned;
-    }
-
-    constexpr bool is_number_float() const noexcept
-    {
-        return m_type == value_t::number_float;
     }
 
     constexpr bool is_object() const noexcept
@@ -662,16 +555,6 @@ class basic_json
         return m_type == value_t::string;
     }
 
-    constexpr bool is_binary() const noexcept
-    {
-        return m_type == value_t::binary;
-    }
-
-    constexpr bool is_discarded() const noexcept
-    {
-        return m_type == value_t::discarded;
-    }
-
     constexpr operator value_t() const noexcept
     {
         return m_type;
@@ -683,17 +566,6 @@ class basic_json
     //////////////////
     // value access //
     //////////////////
-
-    /// get a boolean (explicit)
-    boolean_t get_impl(boolean_t* /*unused*/) const
-    {
-        if (JSON_HEDLEY_LIKELY(is_boolean()))
-        {
-            return m_value.boolean;
-        }
-
-        JSON_THROW(type_error::create(302, "type must be boolean, but is " + std::string(type_name())));
-    }
 
     /// get a pointer to the value (object)
     object_t* get_impl_ptr(object_t* /*unused*/) noexcept
@@ -729,54 +601,6 @@ class basic_json
     constexpr const string_t* get_impl_ptr(const string_t* /*unused*/) const noexcept
     {
         return is_string() ? m_value.string : nullptr;
-    }
-
-    /// get a pointer to the value (boolean)
-    boolean_t* get_impl_ptr(boolean_t* /*unused*/) noexcept
-    {
-        return is_boolean() ? &m_value.boolean : nullptr;
-    }
-
-    /// get a pointer to the value (boolean)
-    constexpr const boolean_t* get_impl_ptr(const boolean_t* /*unused*/) const noexcept
-    {
-        return is_boolean() ? &m_value.boolean : nullptr;
-    }
-
-    /// get a pointer to the value (integer number)
-    number_integer_t* get_impl_ptr(number_integer_t* /*unused*/) noexcept
-    {
-        return is_number_integer() ? &m_value.number_integer : nullptr;
-    }
-
-    /// get a pointer to the value (integer number)
-    constexpr const number_integer_t* get_impl_ptr(const number_integer_t* /*unused*/) const noexcept
-    {
-        return is_number_integer() ? &m_value.number_integer : nullptr;
-    }
-
-    /// get a pointer to the value (unsigned number)
-    number_unsigned_t* get_impl_ptr(number_unsigned_t* /*unused*/) noexcept
-    {
-        return is_number_unsigned() ? &m_value.number_unsigned : nullptr;
-    }
-
-    /// get a pointer to the value (unsigned number)
-    constexpr const number_unsigned_t* get_impl_ptr(const number_unsigned_t* /*unused*/) const noexcept
-    {
-        return is_number_unsigned() ? &m_value.number_unsigned : nullptr;
-    }
-
-    /// get a pointer to the value (floating-point number)
-    number_float_t* get_impl_ptr(number_float_t* /*unused*/) noexcept
-    {
-        return is_number_float() ? &m_value.number_float : nullptr;
-    }
-
-    /// get a pointer to the value (floating-point number)
-    constexpr const number_float_t* get_impl_ptr(const number_float_t* /*unused*/) const noexcept
-    {
-        return is_number_float() ? &m_value.number_float : nullptr;
     }
 
   public:
@@ -1259,48 +1083,9 @@ class basic_json
                 case value_t::string:
                     return *lhs.m_value.string == *rhs.m_value.string;
 
-                case value_t::boolean:
-                    return lhs.m_value.boolean == rhs.m_value.boolean;
-
-                case value_t::number_integer:
-                    return lhs.m_value.number_integer == rhs.m_value.number_integer;
-
-                case value_t::number_unsigned:
-                    return lhs.m_value.number_unsigned == rhs.m_value.number_unsigned;
-
-                case value_t::number_float:
-                    return lhs.m_value.number_float == rhs.m_value.number_float;
-
-                case value_t::binary:
-                    return *lhs.m_value.binary == *rhs.m_value.binary;
-
                 default:
                     return false;
             }
-        }
-        else if (lhs_type == value_t::number_integer && rhs_type == value_t::number_float)
-        {
-            return static_cast<number_float_t>(lhs.m_value.number_integer) == rhs.m_value.number_float;
-        }
-        else if (lhs_type == value_t::number_float && rhs_type == value_t::number_integer)
-        {
-            return lhs.m_value.number_float == static_cast<number_float_t>(rhs.m_value.number_integer);
-        }
-        else if (lhs_type == value_t::number_unsigned && rhs_type == value_t::number_float)
-        {
-            return static_cast<number_float_t>(lhs.m_value.number_unsigned) == rhs.m_value.number_float;
-        }
-        else if (lhs_type == value_t::number_float && rhs_type == value_t::number_unsigned)
-        {
-            return lhs.m_value.number_float == static_cast<number_float_t>(rhs.m_value.number_unsigned);
-        }
-        else if (lhs_type == value_t::number_unsigned && rhs_type == value_t::number_integer)
-        {
-            return static_cast<number_integer_t>(lhs.m_value.number_unsigned) == rhs.m_value.number_integer;
-        }
-        else if (lhs_type == value_t::number_integer && rhs_type == value_t::number_unsigned)
-        {
-            return lhs.m_value.number_integer == static_cast<number_integer_t>(rhs.m_value.number_unsigned);
         }
 
         return false;
@@ -1362,48 +1147,9 @@ class basic_json
                 case value_t::string:
                     return (*lhs.m_value.string) < (*rhs.m_value.string);
 
-                case value_t::boolean:
-                    return (lhs.m_value.boolean) < (rhs.m_value.boolean);
-
-                case value_t::number_integer:
-                    return (lhs.m_value.number_integer) < (rhs.m_value.number_integer);
-
-                case value_t::number_unsigned:
-                    return (lhs.m_value.number_unsigned) < (rhs.m_value.number_unsigned);
-
-                case value_t::number_float:
-                    return (lhs.m_value.number_float) < (rhs.m_value.number_float);
-
-                case value_t::binary:
-                    return (*lhs.m_value.binary) < (*rhs.m_value.binary);
-
                 default:
                     return false;
             }
-        }
-        else if (lhs_type == value_t::number_integer && rhs_type == value_t::number_float)
-        {
-            return static_cast<number_float_t>(lhs.m_value.number_integer) < rhs.m_value.number_float;
-        }
-        else if (lhs_type == value_t::number_float && rhs_type == value_t::number_integer)
-        {
-            return lhs.m_value.number_float < static_cast<number_float_t>(rhs.m_value.number_integer);
-        }
-        else if (lhs_type == value_t::number_unsigned && rhs_type == value_t::number_float)
-        {
-            return static_cast<number_float_t>(lhs.m_value.number_unsigned) < rhs.m_value.number_float;
-        }
-        else if (lhs_type == value_t::number_float && rhs_type == value_t::number_unsigned)
-        {
-            return lhs.m_value.number_float < static_cast<number_float_t>(rhs.m_value.number_unsigned);
-        }
-        else if (lhs_type == value_t::number_integer && rhs_type == value_t::number_unsigned)
-        {
-            return lhs.m_value.number_integer < static_cast<number_integer_t>(rhs.m_value.number_unsigned);
-        }
-        else if (lhs_type == value_t::number_unsigned && rhs_type == value_t::number_integer)
-        {
-            return static_cast<number_integer_t>(lhs.m_value.number_unsigned) < rhs.m_value.number_integer;
         }
 
         // We only reach this line if we cannot compare values. In that case,
@@ -1514,12 +1260,6 @@ class basic_json
                     return "array";
                 case value_t::string:
                     return "string";
-                case value_t::boolean:
-                    return "boolean";
-                case value_t::binary:
-                    return "binary";
-                case value_t::discarded:
-                    return "discarded";
                 default:
                     return "number";
             }
