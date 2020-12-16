@@ -73,8 +73,6 @@ class basic_json
     using json_pointer = ::nlohmann::json_pointer<basic_json>;
     template<typename T, typename SFINAE>
     using json_serializer = JSONSerializer<T, SFINAE>;
-    /// helper type for initializer lists of basic_json values
-    using initializer_list_t = std::initializer_list<detail::json_ref<basic_json>>;
 
     /// @}
 
@@ -399,75 +397,9 @@ class basic_json
         assert_invariant();
     }
 
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    static basic_json object(initializer_list_t init = {})
-    {
-        return basic_json(init, false, value_t::object);
-    }
-
-    basic_json(size_type cnt, const basic_json& val)
-        : m_type(value_t::array)
-    {
-        m_value.array = create<array_t>(cnt, val);
-        assert_invariant();
-    }
-
     ///////////////////////////////////////
     // other constructors and destructor //
     ///////////////////////////////////////
-
-    template<typename JsonRef,
-             detail::enable_if_t<detail::conjunction<detail::is_json_ref<JsonRef>,
-                                 std::is_same<typename JsonRef::value_type, basic_json>>::value, int> = 0 >
-    basic_json(const JsonRef& ref) : basic_json(ref.moved_or_copied()) {}
-
-    basic_json(const basic_json& other)
-        : m_type(other.m_type)
-    {
-        // check of passed value is valid
-        other.assert_invariant();
-
-        switch (m_type)
-        {
-            case value_t::object:
-            {
-                m_value = *other.m_value.object;
-                break;
-            }
-
-            case value_t::array:
-            {
-                m_value = *other.m_value.array;
-                break;
-            }
-
-            case value_t::string:
-            {
-                m_value = *other.m_value.string;
-                break;
-            }
-
-            default:
-                break;
-        }
-
-        assert_invariant();
-    }
-
-    basic_json(basic_json&& other) noexcept
-        : m_type(std::move(other.m_type)),
-          m_value(std::move(other.m_value))
-    {
-        // check that passed value is valid
-        other.assert_invariant();
-
-        // invalidate payload
-        other.m_type = value_t::null;
-        other.m_value = {};
-
-        assert_invariant();
-    }
-
     basic_json& operator=(basic_json other) noexcept (
         std::is_nothrow_move_constructible<value_t>::value&&
         std::is_nothrow_move_assignable<value_t>::value&&
@@ -670,7 +602,6 @@ class basic_json
 
     template < typename ValueType, typename std::enable_if <
                    !std::is_pointer<ValueType>::value&&
-                   !std::is_same<ValueType, detail::json_ref<basic_json>>::value&&
                    !std::is_same<ValueType, typename string_t::value_type>::value&&
                    !detail::is_basic_json<ValueType>::value
                    && !std::is_same<ValueType, std::initializer_list<typename string_t::value_type>>::value

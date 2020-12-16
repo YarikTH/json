@@ -39,19 +39,6 @@ template<typename> struct is_basic_json : std::false_type {};
 NLOHMANN_BASIC_JSON_TPL_DECLARATION
 struct is_basic_json<NLOHMANN_BASIC_JSON_TPL> : std::true_type {};
 
-//////////////////////
-// json_ref helpers //
-//////////////////////
-
-template<typename>
-class json_ref;
-
-template<typename>
-struct is_json_ref : std::false_type {};
-
-template<typename T>
-struct is_json_ref<json_ref<T>> : std::true_type {};
-
 //////////////////////////
 // aliases for detected //
 //////////////////////////
@@ -64,21 +51,6 @@ using key_type_t = typename T::key_type;
 
 template<typename T>
 using value_type_t = typename T::value_type;
-
-template<typename T>
-using difference_type_t = typename T::difference_type;
-
-template<typename T>
-using pointer_t = typename T::pointer;
-
-template<typename T>
-using reference_t = typename T::reference;
-
-template<typename T>
-using iterator_category_t = typename T::iterator_category;
-
-template<typename T>
-using iterator_t = typename T::iterator;
 
 template<typename T, typename... Args>
 using to_json_function = decltype(T::to_json(std::declval<Args>()...));
@@ -157,31 +129,6 @@ struct is_complete_type : std::false_type {};
 template<typename T>
 struct is_complete_type<T, decltype(void(sizeof(T)))> : std::true_type {};
 
-template<typename BasicJsonType, typename CompatibleObjectType,
-         typename = void>
-struct is_compatible_object_type_impl : std::false_type {};
-
-template<typename BasicJsonType, typename CompatibleObjectType>
-struct is_compatible_object_type_impl <
-    BasicJsonType, CompatibleObjectType,
-    enable_if_t < is_detected<mapped_type_t, CompatibleObjectType>::value&&
-    is_detected<key_type_t, CompatibleObjectType>::value >>
-{
-
-    using object_t = typename BasicJsonType::object_t;
-
-    // macOS's is_constructible does not play well with nonesuch...
-    static constexpr bool value =
-        std::is_constructible<typename object_t::key_type,
-        typename CompatibleObjectType::key_type>::value &&
-        std::is_constructible<typename object_t::mapped_type,
-        typename CompatibleObjectType::mapped_type>::value;
-};
-
-template<typename BasicJsonType, typename CompatibleObjectType>
-struct is_compatible_object_type
-    : is_compatible_object_type_impl<BasicJsonType, CompatibleObjectType> {};
-
 template<typename BasicJsonType, typename ConstructibleObjectType,
          typename = void>
 struct is_constructible_object_type_impl : std::false_type {};
@@ -215,24 +162,6 @@ struct is_constructible_object_type
     : is_constructible_object_type_impl<BasicJsonType,
       ConstructibleObjectType> {};
 
-template<typename BasicJsonType, typename CompatibleStringType,
-         typename = void>
-struct is_compatible_string_type_impl : std::false_type {};
-
-template<typename BasicJsonType, typename CompatibleStringType>
-struct is_compatible_string_type_impl <
-    BasicJsonType, CompatibleStringType,
-    enable_if_t<is_detected_exact<typename BasicJsonType::string_t::value_type,
-    value_type_t, CompatibleStringType>::value >>
-{
-    static constexpr auto value =
-        std::is_constructible<typename BasicJsonType::string_t, CompatibleStringType>::value;
-};
-
-template<typename BasicJsonType, typename ConstructibleStringType>
-struct is_compatible_string_type
-    : is_compatible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
-
 template<typename BasicJsonType, typename ConstructibleStringType,
          typename = void>
 struct is_constructible_string_type_impl : std::false_type {};
@@ -252,13 +181,6 @@ template<typename BasicJsonType, typename ConstructibleStringType>
 struct is_constructible_string_type
     : is_constructible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
 
-template<typename BasicJsonType, typename CompatibleArrayType, typename = void>
-struct is_compatible_array_type_impl : std::false_type {};
-
-template<typename BasicJsonType, typename CompatibleArrayType>
-struct is_compatible_array_type
-    : is_compatible_array_type_impl<BasicJsonType, CompatibleArrayType> {};
-
 template<typename BasicJsonType, typename ConstructibleArrayType, typename = void>
 struct is_constructible_array_type_impl : std::false_type {};
 
@@ -272,33 +194,6 @@ struct is_constructible_array_type_impl <
 template<typename BasicJsonType, typename ConstructibleArrayType>
 struct is_constructible_array_type
     : is_constructible_array_type_impl<BasicJsonType, ConstructibleArrayType> {};
-
-template<typename RealIntegerType, typename CompatibleNumberIntegerType,
-         typename = void>
-struct is_compatible_integer_type_impl : std::false_type {};
-
-template<typename RealIntegerType, typename CompatibleNumberIntegerType>
-struct is_compatible_integer_type_impl <
-    RealIntegerType, CompatibleNumberIntegerType,
-    enable_if_t < std::is_integral<RealIntegerType>::value&&
-    std::is_integral<CompatibleNumberIntegerType>::value&&
-    !std::is_same<bool, CompatibleNumberIntegerType>::value >>
-{
-    // is there an assert somewhere on overflows?
-    using RealLimits = std::numeric_limits<RealIntegerType>;
-    using CompatibleLimits = std::numeric_limits<CompatibleNumberIntegerType>;
-
-    static constexpr auto value =
-        std::is_constructible<RealIntegerType,
-        CompatibleNumberIntegerType>::value &&
-        CompatibleLimits::is_integer &&
-        RealLimits::is_signed == CompatibleLimits::is_signed;
-};
-
-template<typename RealIntegerType, typename CompatibleNumberIntegerType>
-struct is_compatible_integer_type
-    : is_compatible_integer_type_impl<RealIntegerType,
-      CompatibleNumberIntegerType> {};
 
 template<typename BasicJsonType, typename CompatibleType, typename = void>
 struct is_compatible_type_impl: std::false_type {};
@@ -322,11 +217,5 @@ template<class B1> struct conjunction<B1> : B1 { };
 template<class B1, class... Bn>
 struct conjunction<B1, Bn...>
 : std::conditional<bool(B1::value), conjunction<Bn...>, B1>::type {};
-
-template<typename T1, typename T2>
-struct is_constructible_tuple : std::false_type {};
-
-template<typename T1, typename... Args>
-struct is_constructible_tuple<T1, std::tuple<Args...>> : conjunction<std::is_constructible<T1, Args>...> {};
 }  // namespace detail
 }  // namespace nlohmann
