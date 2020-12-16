@@ -19,5 +19,3 @@
 #undef NLOHMANN_BASIC_JSON_TPL_DECLARATION
 #undef NLOHMANN_BASIC_JSON_TPL
 #undef JSON_EXPLICIT
-
-#include <nlohmann/thirdparty/hedley/hedley_undef.hpp>

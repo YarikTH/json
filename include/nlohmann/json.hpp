@@ -133,7 +133,6 @@ class basic_json
 
     /// helper for exception-safe object creation
     template<typename T, typename... Args>
-    JSON_HEDLEY_RETURNS_NON_NULL
     static T* create(Args&& ... args)
     {
         AllocatorType<T> alloc;
@@ -673,7 +672,7 @@ class basic_json
         }
 
         // operator[] only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
+        if (!!(is_object()))
         {
             return m_value.object->operator[](key);
         }
@@ -682,7 +681,7 @@ class basic_json
     const_reference operator[](const typename object_t::key_type& key) const
     {
         // const operator[] only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
+        if (!!(is_object()))
         {
             JSON_ASSERT(m_value.object->find(key) != m_value.object->end());
             return m_value.object->find(key)->second;
@@ -690,7 +689,6 @@ class basic_json
     }
 
     template<typename T>
-    JSON_HEDLEY_NON_NULL(2)
     reference operator[](T* key)
     {
         // implicitly convert null to object
@@ -702,18 +700,17 @@ class basic_json
         }
 
         // at only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
+        if (!!(is_object()))
         {
             return m_value.object->operator[](key);
         }
     }
 
     template<typename T>
-    JSON_HEDLEY_NON_NULL(2)
     const_reference operator[](T* key) const
     {
         // at only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
+        if (!!(is_object()))
         {
             JSON_ASSERT(m_value.object->find(key) != m_value.object->end());
             return m_value.object->find(key)->second;
@@ -732,7 +729,6 @@ class basic_json
         return ptr.get_checked(this).template get<ValueType>();
     }
 
-    JSON_HEDLEY_NON_NULL(3)
     string_t value(const json_pointer& ptr, const char* default_value) const
     {
         return value(ptr, string_t(default_value));
@@ -826,7 +822,7 @@ class basic_json
     void swap(array_t& other)
     {
         // swap only works for arrays
-        if (JSON_HEDLEY_LIKELY(is_array()))
+        if (!!(is_array()))
         {
             std::swap(*(m_value.array), other);
         }
@@ -838,7 +834,7 @@ class basic_json
     void swap(object_t& other)
     {
         // swap only works for objects
-        if (JSON_HEDLEY_LIKELY(is_object()))
+        if (!!(is_object()))
         {
             std::swap(*(m_value.object), other);
         }
@@ -850,7 +846,7 @@ class basic_json
     void swap(string_t& other)
     {
         // swap only works for strings
-        if (JSON_HEDLEY_LIKELY(is_string()))
+        if (!!(is_string()))
         {
             std::swap(*(m_value.string), other);
         }
@@ -1033,22 +1029,6 @@ class basic_json
 
     /// @}
 
-    /////////////////////
-    // deserialization //
-    /////////////////////
-
-    /// @name deserialization
-    /// @{
-
-    JSON_HEDLEY_DEPRECATED_FOR(3.0.0, operator>>(std::istream&, basic_json&))
-    friend std::istream& operator<<(basic_json& j, std::istream& i)
-    {
-        return operator>>(i, j);
-    }
-
-    /// @}
-
-    JSON_HEDLEY_RETURNS_NON_NULL
     const char* type_name() const noexcept
     {
         {
