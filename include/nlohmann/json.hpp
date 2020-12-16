@@ -68,9 +68,6 @@ class basic_json
     template<typename T, typename SFINAE>
     using json_serializer = JSONSerializer<T, SFINAE>;
 
-    /// @}
-
-
     /////////////////////
     // container types //
     /////////////////////
@@ -139,74 +136,7 @@ class basic_json
         {
             object = create<object_t>(value);
         }
-
-        /// constructor for rvalue objects
-        json_value(object_t&& value)
-        {
-            object = create<object_t>(std::move(value));
-        }
     };
-
-  public:
-    //////////////////
-    // constructors //
-    //////////////////
-
-    basic_json(const value_t v)
-        : m_type(v), m_value(v)
-    {
-    }
-
-    basic_json(std::nullptr_t = nullptr) noexcept
-        : basic_json(value_t::null)
-    {
-    }
-
-    /// @}
-
-  public:
-    ///////////////////////
-    // object inspection //
-    ///////////////////////
-    constexpr value_t type() const noexcept
-    {
-        return m_type;
-    }
-
-    constexpr bool is_null() const noexcept
-    {
-        return m_type == value_t::null;
-    }
-
-    constexpr bool is_object() const noexcept
-    {
-        return m_type == value_t::object;
-    }
-
-    constexpr operator value_t() const noexcept
-    {
-        return m_type;
-    }
-
-    /// @}
-
-  private:
-    //////////////////
-    // value access //
-    //////////////////
-
-    /// get a pointer to the value (object)
-    object_t* get_impl_ptr(object_t* /*unused*/) noexcept
-    {
-        return is_object() ? m_value.object : nullptr;
-    }
-
-    /// get a pointer to the value (object)
-    constexpr const object_t* get_impl_ptr(const object_t* /*unused*/) const noexcept
-    {
-        return is_object() ? m_value.object : nullptr;
-    }
-
   public:
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     basic_json& operator=(basic_json other) noexcept (
@@ -240,6 +170,11 @@ class basic_json
         ValueType ret;
         JSONSerializer<ValueType>::from_json(*this, ret);
         return ret;
+    }
+
+    constexpr const object_t* get_impl_ptr(const object_t* /*unused*/) const noexcept
+    {
+        return nullptr;
     }
 
     template<typename PointerType, typename std::enable_if<
