@@ -12,7 +12,6 @@
 #include <type_traits> // enable_if, is_base_of, is_pointer, is_integral, remove_pointer
 #include <utility> // pair, declval
 
-#include <nlohmann/detail/iterators/iterator_traits.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
 
 namespace nlohmann
@@ -420,35 +419,5 @@ auto input_adapter(T (&array)[N]) -> decltype(input_adapter(array, array + N))
     return input_adapter(array, array + N);
 }
 
-// This class only handles inputs of input_buffer_adapter type.
-// It's required so that expressions like {ptr, len} can be implicitely casted
-// to the correct adapter.
-class span_input_adapter
-{
-  public:
-    template < typename CharT,
-               typename std::enable_if <
-                   std::is_pointer<CharT>::value&&
-                   std::is_integral<typename std::remove_pointer<CharT>::type>::value&&
-                   sizeof(typename std::remove_pointer<CharT>::type) == 1,
-                   int >::type = 0 >
-    span_input_adapter(CharT b, std::size_t l)
-        : ia(reinterpret_cast<const char*>(b), reinterpret_cast<const char*>(b) + l) {}
-
-    template<class IteratorType,
-             typename std::enable_if<
-                 std::is_same<typename iterator_traits<IteratorType>::iterator_category, std::random_access_iterator_tag>::value,
-                 int>::type = 0>
-    span_input_adapter(IteratorType first, IteratorType last)
-        : ia(input_adapter(first, last)) {}
-
-    contiguous_bytes_input_adapter&& get()
-    {
-        return std::move(ia);
-    }
-
-  private:
-    contiguous_bytes_input_adapter ia;
-};
 }  // namespace detail
 }  // namespace nlohmann

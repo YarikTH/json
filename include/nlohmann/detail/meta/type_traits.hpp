@@ -4,7 +4,6 @@
 #include <type_traits> // false_type, is_constructible, is_integral, is_same, true_type
 #include <utility> // declval
 
-#include <nlohmann/detail/iterators/iterator_traits.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
 #include <nlohmann/detail/meta/cpp_future.hpp>
 #include <nlohmann/detail/meta/detected.hpp>
@@ -150,24 +149,6 @@ struct has_to_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
 // is_ functions //
 ///////////////////
 
-template<typename T, typename = void>
-struct is_iterator_traits : std::false_type {};
-
-template<typename T>
-struct is_iterator_traits<iterator_traits<T>>
-{
-  private:
-    using traits = iterator_traits<T>;
-
-  public:
-    static constexpr auto value =
-        is_detected<value_type_t, traits>::value &&
-        is_detected<difference_type_t, traits>::value &&
-        is_detected<pointer_t, traits>::value &&
-        is_detected<iterator_category_t, traits>::value &&
-        is_detected<reference_t, traits>::value;
-};
-
 // source: https://stackoverflow.com/a/37193089/4116453
 
 template<typename T, typename = void>
@@ -275,22 +256,6 @@ template<typename BasicJsonType, typename CompatibleArrayType, typename = void>
 struct is_compatible_array_type_impl : std::false_type {};
 
 template<typename BasicJsonType, typename CompatibleArrayType>
-struct is_compatible_array_type_impl <
-    BasicJsonType, CompatibleArrayType,
-    enable_if_t < is_detected<value_type_t, CompatibleArrayType>::value&&
-    is_detected<iterator_t, CompatibleArrayType>::value&&
-// This is needed because json_reverse_iterator has a ::iterator type...
-// Therefore it is detected as a CompatibleArrayType.
-// The real fix would be to have an Iterable concept.
-    !is_iterator_traits <
-    iterator_traits<CompatibleArrayType >>::value >>
-{
-    static constexpr bool value =
-        std::is_constructible<BasicJsonType,
-        typename CompatibleArrayType::value_type>::value;
-};
-
-template<typename BasicJsonType, typename CompatibleArrayType>
 struct is_compatible_array_type
     : is_compatible_array_type_impl<BasicJsonType, CompatibleArrayType> {};
 
@@ -303,35 +268,6 @@ struct is_constructible_array_type_impl <
     enable_if_t<std::is_same<ConstructibleArrayType,
     typename BasicJsonType::value_type>::value >>
             : std::true_type {};
-
-template<typename BasicJsonType, typename ConstructibleArrayType>
-struct is_constructible_array_type_impl <
-    BasicJsonType, ConstructibleArrayType,
-    enable_if_t < !std::is_same<ConstructibleArrayType,
-    typename BasicJsonType::value_type>::value&&
-    std::is_default_constructible<ConstructibleArrayType>::value&&
-(std::is_move_assignable<ConstructibleArrayType>::value ||
- std::is_copy_assignable<ConstructibleArrayType>::value)&&
-is_detected<value_type_t, ConstructibleArrayType>::value&&
-is_detected<iterator_t, ConstructibleArrayType>::value&&
-is_complete_type <
-detected_t<value_type_t, ConstructibleArrayType >>::value >>
-{
-    static constexpr bool value =
-        // This is needed because json_reverse_iterator has a ::iterator type,
-        // furthermore, std::back_insert_iterator (and other iterators) have a
-        // base class `iterator`... Therefore it is detected as a
-        // ConstructibleArrayType. The real fix would be to have an Iterable
-        // concept.
-        !is_iterator_traits<iterator_traits<ConstructibleArrayType>>::value &&
-
-        (std::is_same<typename ConstructibleArrayType::value_type,
-         typename BasicJsonType::array_t::value_type>::value ||
-         has_from_json<BasicJsonType,
-         typename ConstructibleArrayType::value_type>::value ||
-         has_non_default_from_json <
-         BasicJsonType, typename ConstructibleArrayType::value_type >::value);
-};
 
 template<typename BasicJsonType, typename ConstructibleArrayType>
 struct is_constructible_array_type

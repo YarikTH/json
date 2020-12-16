@@ -55,7 +55,6 @@ SOFTWARE.
 #include <nlohmann/detail/input/input_adapters.hpp>
 #include <nlohmann/detail/input/lexer.hpp>
 #include <nlohmann/detail/input/parser.hpp>
-#include <nlohmann/detail/iterators/iteration_proxy.hpp>
 #include <nlohmann/detail/json_pointer.hpp>
 #include <nlohmann/detail/json_ref.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
@@ -187,9 +186,6 @@ class basic_json
         return ::nlohmann::detail::parser<basic_json, InputAdapterType>(std::move(adapter),
                 std::move(cb), allow_exceptions, ignore_comments);
     }
-
-    template<typename Iterator>
-    using iteration_proxy = ::nlohmann::detail::iteration_proxy<Iterator>;
 
     template<typename CharType>
     using output_adapter_t = ::nlohmann::detail::output_adapter_t<CharType>;
@@ -5212,18 +5208,6 @@ class basic_json
         return result;
     }
 
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    JSON_HEDLEY_DEPRECATED_FOR(3.8.0, parse(ptr, ptr + len))
-    static basic_json parse(detail::span_input_adapter&& i,
-                            const parser_callback_t cb = nullptr,
-                            const bool allow_exceptions = true,
-                            const bool ignore_comments = false)
-    {
-        basic_json result;
-        parser(i.get(), cb, allow_exceptions, ignore_comments).parse(true, result);
-        return result;
-    }
-
     /*!
     @brief check if the input is valid JSON
 
@@ -5266,14 +5250,6 @@ class basic_json
                        const bool ignore_comments = false)
     {
         return parser(detail::input_adapter(std::move(first), std::move(last)), nullptr, false, ignore_comments).accept(true);
-    }
-
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    JSON_HEDLEY_DEPRECATED_FOR(3.8.0, accept(ptr, ptr + len))
-    static bool accept(detail::span_input_adapter&& i,
-                       const bool ignore_comments = false)
-    {
-        return parser(i.get(), nullptr, false, ignore_comments).accept(true);
     }
 
     /*!

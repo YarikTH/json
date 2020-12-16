@@ -2735,10 +2735,14 @@ constexpr T static_const<T>::value;
 #include <type_traits> // false_type, is_constructible, is_integral, is_same, true_type
 #include <utility> // declval
 
-// #include <nlohmann/detail/iterators/iterator_traits.hpp>
+// #include <nlohmann/detail/macro_scope.hpp>
+
+// #include <nlohmann/detail/meta/cpp_future.hpp>
+
+// #include <nlohmann/detail/meta/detected.hpp>
 
 
-#include <iterator> // random_access_iterator_tag
+#include <type_traits>
 
 // #include <nlohmann/detail/meta/void_t.hpp>
 
@@ -2754,65 +2758,6 @@ template<typename ...Ts> struct make_void
 template<typename ...Ts> using void_t = typename make_void<Ts...>::type;
 } // namespace detail
 }  // namespace nlohmann
-
-// #include <nlohmann/detail/meta/cpp_future.hpp>
-
-
-namespace nlohmann
-{
-namespace detail
-{
-template<typename It, typename = void>
-struct iterator_types {};
-
-template<typename It>
-struct iterator_types <
-    It,
-    void_t<typename It::difference_type, typename It::value_type, typename It::pointer,
-    typename It::reference, typename It::iterator_category >>
-{
-    using difference_type = typename It::difference_type;
-    using value_type = typename It::value_type;
-    using pointer = typename It::pointer;
-    using reference = typename It::reference;
-    using iterator_category = typename It::iterator_category;
-};
-
-// This is required as some compilers implement std::iterator_traits in a way that
-// doesn't work with SFINAE. See https://github.com/nlohmann/json/issues/1341.
-template<typename T, typename = void>
-struct iterator_traits
-{
-};
-
-template<typename T>
-struct iterator_traits < T, enable_if_t < !std::is_pointer<T>::value >>
-            : iterator_types<T>
-{
-};
-
-template<typename T>
-struct iterator_traits<T*, enable_if_t<std::is_object<T>::value>>
-{
-    using iterator_category = std::random_access_iterator_tag;
-    using value_type = T;
-    using difference_type = ptrdiff_t;
-    using pointer = T*;
-    using reference = T&;
-};
-} // namespace detail
-} // namespace nlohmann
-
-// #include <nlohmann/detail/macro_scope.hpp>
-
-// #include <nlohmann/detail/meta/cpp_future.hpp>
-
-// #include <nlohmann/detail/meta/detected.hpp>
-
-
-#include <type_traits>
-
-// #include <nlohmann/detail/meta/void_t.hpp>
 
 
 // https://en.cppreference.com/w/cpp/experimental/is_detected
@@ -3089,24 +3034,6 @@ struct has_to_json < BasicJsonType, T, enable_if_t < !is_basic_json<T>::value >>
 // is_ functions //
 ///////////////////
 
-template<typename T, typename = void>
-struct is_iterator_traits : std::false_type {};
-
-template<typename T>
-struct is_iterator_traits<iterator_traits<T>>
-{
-  private:
-    using traits = iterator_traits<T>;
-
-  public:
-    static constexpr auto value =
-        is_detected<value_type_t, traits>::value &&
-        is_detected<difference_type_t, traits>::value &&
-        is_detected<pointer_t, traits>::value &&
-        is_detected<iterator_category_t, traits>::value &&
-        is_detected<reference_t, traits>::value;
-};
-
 // source: https://stackoverflow.com/a/37193089/4116453
 
 template<typename T, typename = void>
@@ -3214,22 +3141,6 @@ template<typename BasicJsonType, typename CompatibleArrayType, typename = void>
 struct is_compatible_array_type_impl : std::false_type {};
 
 template<typename BasicJsonType, typename CompatibleArrayType>
-struct is_compatible_array_type_impl <
-    BasicJsonType, CompatibleArrayType,
-    enable_if_t < is_detected<value_type_t, CompatibleArrayType>::value&&
-    is_detected<iterator_t, CompatibleArrayType>::value&&
-// This is needed because json_reverse_iterator has a ::iterator type...
-// Therefore it is detected as a CompatibleArrayType.
-// The real fix would be to have an Iterable concept.
-    !is_iterator_traits <
-    iterator_traits<CompatibleArrayType >>::value >>
-{
-    static constexpr bool value =
-        std::is_constructible<BasicJsonType,
-        typename CompatibleArrayType::value_type>::value;
-};
-
-template<typename BasicJsonType, typename CompatibleArrayType>
 struct is_compatible_array_type
     : is_compatible_array_type_impl<BasicJsonType, CompatibleArrayType> {};
 
@@ -3242,35 +3153,6 @@ struct is_constructible_array_type_impl <
     enable_if_t<std::is_same<ConstructibleArrayType,
     typename BasicJsonType::value_type>::value >>
             : std::true_type {};
-
-template<typename BasicJsonType, typename ConstructibleArrayType>
-struct is_constructible_array_type_impl <
-    BasicJsonType, ConstructibleArrayType,
-    enable_if_t < !std::is_same<ConstructibleArrayType,
-    typename BasicJsonType::value_type>::value&&
-    std::is_default_constructible<ConstructibleArrayType>::value&&
-(std::is_move_assignable<ConstructibleArrayType>::value ||
- std::is_copy_assignable<ConstructibleArrayType>::value)&&
-is_detected<value_type_t, ConstructibleArrayType>::value&&
-is_detected<iterator_t, ConstructibleArrayType>::value&&
-is_complete_type <
-detected_t<value_type_t, ConstructibleArrayType >>::value >>
-{
-    static constexpr bool value =
-        // This is needed because json_reverse_iterator has a ::iterator type,
-        // furthermore, std::back_insert_iterator (and other iterators) have a
-        // base class `iterator`... Therefore it is detected as a
-        // ConstructibleArrayType. The real fix would be to have an Iterable
-        // concept.
-        !is_iterator_traits<iterator_traits<ConstructibleArrayType>>::value &&
-
-        (std::is_same<typename ConstructibleArrayType::value_type,
-         typename BasicJsonType::array_t::value_type>::value ||
-         has_from_json<BasicJsonType,
-         typename ConstructibleArrayType::value_type>::value ||
-         has_non_default_from_json <
-         BasicJsonType, typename ConstructibleArrayType::value_type >::value);
-};
 
 template<typename BasicJsonType, typename ConstructibleArrayType>
 struct is_constructible_array_type
@@ -3814,188 +3696,6 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
 #include <valarray> // valarray
 #include <vector> // vector
 
-// #include <nlohmann/detail/iterators/iteration_proxy.hpp>
-
-
-#include <cstddef> // size_t
-#include <iterator> // input_iterator_tag
-#include <string> // string, to_string
-#include <tuple> // tuple_size, get, tuple_element
-
-// #include <nlohmann/detail/meta/type_traits.hpp>
-
-// #include <nlohmann/detail/value_t.hpp>
-
-
-namespace nlohmann
-{
-namespace detail
-{
-template<typename string_type>
-void int_to_string( string_type& target, std::size_t value )
-{
-    // For ADL
-    using std::to_string;
-    target = to_string(value);
-}
-template<typename IteratorType> class iteration_proxy_value
-{
-  public:
-    using difference_type = std::ptrdiff_t;
-    using value_type = iteration_proxy_value;
-    using pointer = value_type * ;
-    using reference = value_type & ;
-    using iterator_category = std::input_iterator_tag;
-    using string_type = typename std::remove_cv< typename std::remove_reference<decltype( std::declval<IteratorType>().key() ) >::type >::type;
-
-  private:
-    /// the iterator
-    IteratorType anchor;
-    /// an index for arrays (used to create key names)
-    std::size_t array_index = 0;
-    /// last stringified array index
-    mutable std::size_t array_index_last = 0;
-    /// a string representation of the array index
-    mutable string_type array_index_str = "0";
-    /// an empty string (to return a reference for primitive values)
-    const string_type empty_str = "";
-
-  public:
-    explicit iteration_proxy_value(IteratorType it) noexcept : anchor(it) {}
-
-    /// dereference operator (needed for range-based for)
-    iteration_proxy_value& operator*()
-    {
-        return *this;
-    }
-
-    /// increment operator (needed for range-based for)
-    iteration_proxy_value& operator++()
-    {
-        ++anchor;
-        ++array_index;
-
-        return *this;
-    }
-
-    /// equality operator (needed for InputIterator)
-    bool operator==(const iteration_proxy_value& o) const
-    {
-        return anchor == o.anchor;
-    }
-
-    /// inequality operator (needed for range-based for)
-    bool operator!=(const iteration_proxy_value& o) const
-    {
-        return anchor != o.anchor;
-    }
-
-    /// return key of the iterator
-    const string_type& key() const
-    {
-        JSON_ASSERT(anchor.m_object != nullptr);
-
-        switch (anchor.m_object->type())
-        {
-            // use integer array index as key
-            case value_t::array:
-            {
-                if (array_index != array_index_last)
-                {
-                    int_to_string( array_index_str, array_index );
-                    array_index_last = array_index;
-                }
-                return array_index_str;
-            }
-
-            // use key from the object
-            case value_t::object:
-                return anchor.key();
-
-            // use an empty key for all primitive types
-            default:
-                return empty_str;
-        }
-    }
-
-    /// return value of the iterator
-    typename IteratorType::reference value() const
-    {
-        return anchor.value();
-    }
-};
-
-/// proxy class for the items() function
-template<typename IteratorType> class iteration_proxy
-{
-  private:
-    /// the container to iterate
-    typename IteratorType::reference container;
-
-  public:
-    /// construct iteration proxy from a container
-    explicit iteration_proxy(typename IteratorType::reference cont) noexcept
-        : container(cont) {}
-
-    /// return iterator begin (needed for range-based for)
-    iteration_proxy_value<IteratorType> begin() noexcept
-    {
-        return iteration_proxy_value<IteratorType>(container.begin());
-    }
-
-    /// return iterator end (needed for range-based for)
-    iteration_proxy_value<IteratorType> end() noexcept
-    {
-        return iteration_proxy_value<IteratorType>(container.end());
-    }
-};
-// Structured Bindings Support
-// For further reference see https://blog.tartanllama.xyz/structured-bindings/
-// And see https://github.com/nlohmann/json/pull/1391
-template<std::size_t N, typename IteratorType, enable_if_t<N == 0, int> = 0>
-auto get(const nlohmann::detail::iteration_proxy_value<IteratorType>& i) -> decltype(i.key())
-{
-    return i.key();
-}
-// Structured Bindings Support
-// For further reference see https://blog.tartanllama.xyz/structured-bindings/
-// And see https://github.com/nlohmann/json/pull/1391
-template<std::size_t N, typename IteratorType, enable_if_t<N == 1, int> = 0>
-auto get(const nlohmann::detail::iteration_proxy_value<IteratorType>& i) -> decltype(i.value())
-{
-    return i.value();
-}
-}  // namespace detail
-}  // namespace nlohmann
-
-// The Addition to the STD Namespace is required to add
-// Structured Bindings Support to the iteration_proxy_value class
-// For further reference see https://blog.tartanllama.xyz/structured-bindings/
-// And see https://github.com/nlohmann/json/pull/1391
-namespace std
-{
-#if defined(__clang__)
-    // Fix: https://github.com/nlohmann/json/issues/1401
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wmismatched-tags"
-#endif
-template<typename IteratorType>
-class tuple_size<::nlohmann::detail::iteration_proxy_value<IteratorType>>
-            : public std::integral_constant<std::size_t, 2> {};
-
-template<std::size_t N, typename IteratorType>
-class tuple_element<N, ::nlohmann::detail::iteration_proxy_value<IteratorType >>
-{
-  public:
-    using type = decltype(
-                     get<N>(std::declval <
-                            ::nlohmann::detail::iteration_proxy_value<IteratorType >> ()));
-};
-#if defined(__clang__)
-    #pragma clang diagnostic pop
-#endif
-} // namespace std
-
 // #include <nlohmann/detail/meta/cpp_future.hpp>
 
 // #include <nlohmann/detail/meta/type_traits.hpp>
@@ -4324,14 +4024,6 @@ void to_json(BasicJsonType& j, const std::pair<T1, T2>& p)
     j = { p.first, p.second };
 }
 
-// for https://github.com/nlohmann/json/pull/1134
-template<typename BasicJsonType, typename T,
-         enable_if_t<std::is_same<T, iteration_proxy_value<typename BasicJsonType::iterator>>::value, int> = 0>
-void to_json(BasicJsonType& j, const T& b)
-{
-    j = { {b.key(), b.value()} };
-}
-
 template<typename BasicJsonType, typename Tuple, std::size_t... Idx>
 void to_json_tuple_impl(BasicJsonType& j, const Tuple& t, index_sequence<Idx...> /*unused*/)
 {
@@ -4632,8 +4324,6 @@ std::size_t hash(const BasicJsonType& j)
 #include <string> // string, char_traits
 #include <type_traits> // enable_if, is_base_of, is_pointer, is_integral, remove_pointer
 #include <utility> // pair, declval
-
-// #include <nlohmann/detail/iterators/iterator_traits.hpp>
 
 // #include <nlohmann/detail/macro_scope.hpp>
 
@@ -5043,36 +4733,6 @@ auto input_adapter(T (&array)[N]) -> decltype(input_adapter(array, array + N))
     return input_adapter(array, array + N);
 }
 
-// This class only handles inputs of input_buffer_adapter type.
-// It's required so that expressions like {ptr, len} can be implicitely casted
-// to the correct adapter.
-class span_input_adapter
-{
-  public:
-    template < typename CharT,
-               typename std::enable_if <
-                   std::is_pointer<CharT>::value&&
-                   std::is_integral<typename std::remove_pointer<CharT>::type>::value&&
-                   sizeof(typename std::remove_pointer<CharT>::type) == 1,
-                   int >::type = 0 >
-    span_input_adapter(CharT b, std::size_t l)
-        : ia(reinterpret_cast<const char*>(b), reinterpret_cast<const char*>(b) + l) {}
-
-    template<class IteratorType,
-             typename std::enable_if<
-                 std::is_same<typename iterator_traits<IteratorType>::iterator_category, std::random_access_iterator_tag>::value,
-                 int>::type = 0>
-    span_input_adapter(IteratorType first, IteratorType last)
-        : ia(input_adapter(first, last)) {}
-
-    contiguous_bytes_input_adapter&& get()
-    {
-        return std::move(ia);
-    }
-
-  private:
-    contiguous_bytes_input_adapter ia;
-};
 }  // namespace detail
 }  // namespace nlohmann
 
@@ -6831,8 +6491,6 @@ class parser
 };
 }  // namespace detail
 }  // namespace nlohmann
-
-// #include <nlohmann/detail/iterators/iteration_proxy.hpp>
 
 // #include <nlohmann/detail/json_pointer.hpp>
 
@@ -10380,9 +10038,6 @@ class basic_json
         return ::nlohmann::detail::parser<basic_json, InputAdapterType>(std::move(adapter),
                 std::move(cb), allow_exceptions, ignore_comments);
     }
-
-    template<typename Iterator>
-    using iteration_proxy = ::nlohmann::detail::iteration_proxy<Iterator>;
 
     template<typename CharType>
     using output_adapter_t = ::nlohmann::detail::output_adapter_t<CharType>;
@@ -15405,18 +15060,6 @@ class basic_json
         return result;
     }
 
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    JSON_HEDLEY_DEPRECATED_FOR(3.8.0, parse(ptr, ptr + len))
-    static basic_json parse(detail::span_input_adapter&& i,
-                            const parser_callback_t cb = nullptr,
-                            const bool allow_exceptions = true,
-                            const bool ignore_comments = false)
-    {
-        basic_json result;
-        parser(i.get(), cb, allow_exceptions, ignore_comments).parse(true, result);
-        return result;
-    }
-
     /*!
     @brief check if the input is valid JSON
 
@@ -15459,14 +15102,6 @@ class basic_json
                        const bool ignore_comments = false)
     {
         return parser(detail::input_adapter(std::move(first), std::move(last)), nullptr, false, ignore_comments).accept(true);
-    }
-
-    JSON_HEDLEY_WARN_UNUSED_RESULT
-    JSON_HEDLEY_DEPRECATED_FOR(3.8.0, accept(ptr, ptr + len))
-    static bool accept(detail::span_input_adapter&& i,
-                       const bool ignore_comments = false)
-    {
-        return parser(i.get(), nullptr, false, ignore_comments).accept(true);
     }
 
     /*!
