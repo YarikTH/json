@@ -21,17 +21,6 @@ namespace nlohmann
 {
 namespace detail
 {
-template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, typename std::nullptr_t& n)
-{
-    n = nullptr;
-}
-
-template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, typename BasicJsonType::boolean_t& b)
-{
-    b = *j.template get_ptr<const typename BasicJsonType::boolean_t*>();
-}
 
 template<typename BasicJsonType>
 void from_json(const BasicJsonType& j, typename BasicJsonType::string_t& s)
@@ -49,86 +38,6 @@ template <
 void from_json(const BasicJsonType& j, ConstructibleStringType& s)
 {
     s = *j.template get_ptr<const typename BasicJsonType::string_t*>();
-}
-
-template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, typename BasicJsonType::number_float_t& val)
-{
-    get_arithmetic_value(j, val);
-}
-
-template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, typename BasicJsonType::number_unsigned_t& val)
-{
-    get_arithmetic_value(j, val);
-}
-
-template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, typename BasicJsonType::number_integer_t& val)
-{
-    get_arithmetic_value(j, val);
-}
-
-template<typename BasicJsonType, typename EnumType,
-         enable_if_t<std::is_enum<EnumType>::value, int> = 0>
-void from_json(const BasicJsonType& j, EnumType& e)
-{
-    typename std::underlying_type<EnumType>::type val;
-    get_arithmetic_value(j, val);
-    e = static_cast<EnumType>(val);
-}
-
-// forward_list doesn't have an insert method
-template<typename BasicJsonType, typename T, typename Allocator,
-         enable_if_t<is_getable<BasicJsonType, T>::value, int> = 0>
-void from_json(const BasicJsonType& j, std::forward_list<T, Allocator>& l)
-{
-    l.clear();
-    std::transform(j.rbegin(), j.rend(),
-                   std::front_inserter(l), [](const BasicJsonType & i)
-    {
-        return i.template get<T>();
-    });
-}
-
-// valarray doesn't have an insert method
-template<typename BasicJsonType, typename T,
-         enable_if_t<is_getable<BasicJsonType, T>::value, int> = 0>
-void from_json(const BasicJsonType& j, std::valarray<T>& l)
-{
-    l.resize(j.size());
-    std::transform(j.begin(), j.end(), std::begin(l),
-                   [](const BasicJsonType & elem)
-    {
-        return elem.template get<T>();
-    });
-}
-
-template<typename BasicJsonType, typename T, std::size_t N>
-auto from_json(const BasicJsonType& j, T (&arr)[N])
--> decltype(j.template get<T>(), void())
-{
-    for (std::size_t i = 0; i < N; ++i)
-    {
-        arr[i] = j.at(i).template get<T>();
-    }
-}
-
-template<typename BasicJsonType>
-void from_json_array_impl(const BasicJsonType& j, typename BasicJsonType::array_t& arr, priority_tag<3> /*unused*/)
-{
-    arr = *j.template get_ptr<const typename BasicJsonType::array_t*>();
-}
-
-template<typename BasicJsonType, typename T, std::size_t N>
-auto from_json_array_impl(const BasicJsonType& j, std::array<T, N>& arr,
-                          priority_tag<2> /*unused*/)
--> decltype(j.template get<T>(), void())
-{
-    for (std::size_t i = 0; i < N; ++i)
-    {
-        arr[i] = j.at(i).template get<T>();
-    }
 }
 
 template<typename BasicJsonType, typename ConstructibleArrayType>
@@ -186,12 +95,6 @@ void())
     from_json_array_impl(j, arr, priority_tag<3> {});
 }
 
-template<typename BasicJsonType>
-void from_json(const BasicJsonType& j, typename BasicJsonType::binary_t& bin)
-{
-    bin = *j.template get_ptr<const typename BasicJsonType::binary_t*>();
-}
-
 template<typename BasicJsonType, typename ConstructibleObjectType,
          enable_if_t<is_constructible_object_type<BasicJsonType, ConstructibleObjectType>::value, int> = 0>
 void from_json(const BasicJsonType& j, ConstructibleObjectType& obj)
@@ -213,42 +116,6 @@ template<typename BasicJsonType, typename A1, typename A2>
 void from_json(const BasicJsonType& j, std::pair<A1, A2>& p)
 {
     p = {j.at(0).template get<A1>(), j.at(1).template get<A2>()};
-}
-
-template<typename BasicJsonType, typename Tuple, std::size_t... Idx>
-void from_json_tuple_impl(const BasicJsonType& j, Tuple& t, index_sequence<Idx...> /*unused*/)
-{
-    t = std::make_tuple(j.at(Idx).template get<typename std::tuple_element<Idx, Tuple>::type>()...);
-}
-
-template<typename BasicJsonType, typename... Args>
-void from_json(const BasicJsonType& j, std::tuple<Args...>& t)
-{
-    from_json_tuple_impl(j, t, index_sequence_for<Args...> {});
-}
-
-template < typename BasicJsonType, typename Key, typename Value, typename Compare, typename Allocator,
-           typename = enable_if_t < !std::is_constructible <
-                                        typename BasicJsonType::string_t, Key >::value >>
-void from_json(const BasicJsonType& j, std::map<Key, Value, Compare, Allocator>& m)
-{
-    m.clear();
-    for (const auto& p : j)
-    {
-        m.emplace(p.at(0).template get<Key>(), p.at(1).template get<Value>());
-    }
-}
-
-template < typename BasicJsonType, typename Key, typename Value, typename Hash, typename KeyEqual, typename Allocator,
-           typename = enable_if_t < !std::is_constructible <
-                                        typename BasicJsonType::string_t, Key >::value >>
-void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyEqual, Allocator>& m)
-{
-    m.clear();
-    for (const auto& p : j)
-    {
-        m.emplace(p.at(0).template get<Key>(), p.at(1).template get<Value>());
-    }
 }
 
 struct from_json_fn

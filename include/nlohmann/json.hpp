@@ -48,7 +48,6 @@ SOFTWARE.
 
 #include <nlohmann/adl_serializer.hpp>
 #include <nlohmann/detail/conversions/from_json.hpp>
-#include <nlohmann/detail/hash.hpp>
 #include <nlohmann/detail/macro_scope.hpp>
 #include <nlohmann/detail/meta/cpp_future.hpp>
 #include <nlohmann/detail/meta/type_traits.hpp>
@@ -903,32 +902,6 @@ class basic_json
 
     /// the value of the current element
     json_value m_value = {};
-
-  public:
-
-    //////////////////////////
-    // JSON Pointer support //
-    //////////////////////////
-
-    reference operator[](const json_pointer& ptr)
-    {
-        return ptr.get_unchecked(this);
-    }
-
-    const_reference operator[](const json_pointer& ptr) const
-    {
-        return ptr.get_unchecked(this);
-    }
-
-    reference at(const json_pointer& ptr)
-    {
-        return ptr.get_checked(this);
-    }
-
-    const_reference at(const json_pointer& ptr) const
-    {
-        return ptr.get_checked(this);
-    }
 };
 } // namespace nlohmann
 
@@ -936,19 +909,9 @@ class basic_json
 // nonmember support //
 ///////////////////////
 
-// specialization of std::swap, and std::hash
+// specialization of std::swap
 namespace std
 {
-
-/// hash value for JSON objects
-template<>
-struct hash<nlohmann::json>
-{
-    std::size_t operator()(const nlohmann::json& j) const
-    {
-        return nlohmann::detail::hash(j);
-    }
-};
 
 template<>
 struct less<::nlohmann::detail::value_t>
