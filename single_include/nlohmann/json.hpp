@@ -1217,25 +1217,7 @@ class basic_json
     }
 
   public:
-    /// @name value access
-    /// Direct access to the stored value of a JSON value.
-    /// @{
-    template<typename BasicJsonType, detail::enable_if_t<
-                 std::is_same<typename std::remove_const<BasicJsonType>::type, basic_json_t>::value,
-                 int> = 0>
-    basic_json get() const
-    {
-        return *this;
-    }
-
-    template < typename BasicJsonType, detail::enable_if_t <
-                   !std::is_same<BasicJsonType, basic_json>::value&&
-                   detail::is_basic_json<BasicJsonType>::value, int > = 0 >
-    BasicJsonType get() const
-    {
-        return *this;
-    }
-
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t <
                    !detail::is_basic_json<ValueType>::value &&
@@ -1258,18 +1240,6 @@ class basic_json
         return ret;
     }
 
-    template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
-               detail::enable_if_t < !std::is_same<basic_json_t, ValueType>::value &&
-                                     detail::has_non_default_from_json<basic_json_t, ValueType>::value,
-                                     int > = 0 >
-    ValueType get() const noexcept(noexcept(
-                                       JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>())))
-    {
-        static_assert(!std::is_reference<ValueTypeCV>::value,
-                      "get() cannot be used with reference types, you might want to use get_ref()");
-        return JSONSerializer<ValueType>::from_json(*this);
-    }
-
     template<typename PointerType, typename std::enable_if<
                  std::is_pointer<PointerType>::value, int>::type = 0>
     auto get_ptr() noexcept -> decltype(std::declval<basic_json_t&>().get_impl_ptr(std::declval<PointerType>()))
@@ -1285,14 +1255,6 @@ class basic_json
     {
         // delegate the call to get_impl_ptr<>() const
         return get_impl_ptr(static_cast<PointerType>(nullptr));
-    }
-
-    template<typename PointerType, typename std::enable_if<
-                 std::is_pointer<PointerType>::value, int>::type = 0>
-    auto get() noexcept -> decltype(std::declval<basic_json_t&>().template get_ptr<PointerType>())
-    {
-        // delegate the call to get_ptr
-        return get_ptr<PointerType>();
     }
 
     template<typename PointerType, typename std::enable_if<
@@ -1318,9 +1280,7 @@ class basic_json
         // delegate the call to get<>() const
         return get<ValueType>();
     }
-
-    /// @}
-
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ////////////////////
     // element access //
@@ -1343,179 +1303,6 @@ class basic_json
     }
 
   public:
-    //////////////////////////////////////////
-    // lexicographical comparison operators //
-    //////////////////////////////////////////
-
-    friend bool operator==(const_reference lhs, const_reference rhs) noexcept
-    {
-        const auto lhs_type = lhs.type();
-        const auto rhs_type = rhs.type();
-
-        if (lhs_type == rhs_type)
-        {
-            switch (lhs_type)
-            {
-                case value_t::array:
-                    return *lhs.m_value.array == *rhs.m_value.array;
-
-                case value_t::object:
-                    return *lhs.m_value.object == *rhs.m_value.object;
-
-                case value_t::null:
-                    return true;
-
-                case value_t::string:
-                    return *lhs.m_value.string == *rhs.m_value.string;
-
-                default:
-                    return false;
-            }
-        }
-
-        return false;
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator==(const_reference lhs, const ScalarType rhs) noexcept
-    {
-        return lhs == basic_json(rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator==(const ScalarType lhs, const_reference rhs) noexcept
-    {
-        return basic_json(lhs) == rhs;
-    }
-
-    friend bool operator!=(const_reference lhs, const_reference rhs) noexcept
-    {
-        return !(lhs == rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator!=(const_reference lhs, const ScalarType rhs) noexcept
-    {
-        return lhs != basic_json(rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator!=(const ScalarType lhs, const_reference rhs) noexcept
-    {
-        return basic_json(lhs) != rhs;
-    }
-
-    friend bool operator<(const_reference lhs, const_reference rhs) noexcept
-    {
-        const auto lhs_type = lhs.type();
-        const auto rhs_type = rhs.type();
-
-        if (lhs_type == rhs_type)
-        {
-            switch (lhs_type)
-            {
-                case value_t::array:
-                    // note parentheses are necessary, see
-                    // https://github.com/nlohmann/json/issues/1530
-                    return (*lhs.m_value.array) < (*rhs.m_value.array);
-
-                case value_t::object:
-                    return (*lhs.m_value.object) < (*rhs.m_value.object);
-
-                case value_t::null:
-                    return false;
-
-                case value_t::string:
-                    return (*lhs.m_value.string) < (*rhs.m_value.string);
-
-                default:
-                    return false;
-            }
-        }
-
-        // We only reach this line if we cannot compare values. In that case,
-        // we compare types. Note we have to call the operator explicitly,
-        // because MSVC has problems otherwise.
-        return operator<(lhs_type, rhs_type);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator<(const_reference lhs, const ScalarType rhs) noexcept
-    {
-        return lhs < basic_json(rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator<(const ScalarType lhs, const_reference rhs) noexcept
-    {
-        return basic_json(lhs) < rhs;
-    }
-
-    friend bool operator<=(const_reference lhs, const_reference rhs) noexcept
-    {
-        return !(rhs < lhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator<=(const_reference lhs, const ScalarType rhs) noexcept
-    {
-        return lhs <= basic_json(rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator<=(const ScalarType lhs, const_reference rhs) noexcept
-    {
-        return basic_json(lhs) <= rhs;
-    }
-
-    friend bool operator>(const_reference lhs, const_reference rhs) noexcept
-    {
-        return !(lhs <= rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator>(const_reference lhs, const ScalarType rhs) noexcept
-    {
-        return lhs > basic_json(rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator>(const ScalarType lhs, const_reference rhs) noexcept
-    {
-        return basic_json(lhs) > rhs;
-    }
-
-    friend bool operator>=(const_reference lhs, const_reference rhs) noexcept
-    {
-        return !(lhs < rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator>=(const_reference lhs, const ScalarType rhs) noexcept
-    {
-        return lhs >= basic_json(rhs);
-    }
-
-    template<typename ScalarType, typename std::enable_if<
-                 std::is_scalar<ScalarType>::value, int>::type = 0>
-    friend bool operator>=(const ScalarType lhs, const_reference rhs) noexcept
-    {
-        return basic_json(lhs) >= rhs;
-    }
-
-    /// @}
-
     const char* type_name() const noexcept
     {
         {
@@ -1548,25 +1335,6 @@ class basic_json
     json_value m_value = {};
 };
 } // namespace nlohmann
-
-///////////////////////
-// nonmember support //
-///////////////////////
-
-namespace std
-{
-
-template<>
-struct less<::nlohmann::detail::value_t>
-{
-    bool operator()(nlohmann::detail::value_t lhs,
-                    nlohmann::detail::value_t rhs) const noexcept
-    {
-        return nlohmann::detail::operator<(lhs, rhs);
-    }
-};
-
-} // namespace std
 
 // #include <nlohmann/detail/macro_unscope.hpp>
 
