@@ -137,6 +137,16 @@ struct detector
     using type = Default;
 };
 
+// @5: note: in instantiation of template type alias 'get_template_function' requested here
+// struct detector<Default, void_t<Op<Args...>>, Op, Args...>
+//                                 ^
+// @13: note: in instantiation of template type alias 'get_template_function' requested here
+// struct detector<Default, void_t<Op<Args...>>, Op, Args...>
+//                                 ^
+// @21: note: in instantiation of template type alias 'from_json_function'
+// requested here
+// struct detector<Default, void_t<Op<Args...>>, Op, Args...>
+//                                 ^
 template<class Default, template<class...> class Op, class... Args>
 struct detector<Default, void_t<Op<Args...>>, Op, Args...>
 {
@@ -144,12 +154,40 @@ struct detector<Default, void_t<Op<Args...>>, Op, Args...>
     using type = Op<Args...>;
 };
 
+// @3: note: in instantiation of template class 'nlohmann::detail::detector<
+// nlohmann::detail::nonesuch, void, get_template_function, const nlohmann::ordered_json&, nlohmann::ordered_json>  >'
+//  requested here
+// using is_detected =
+// ^
+// @4: note: during template argument deduction for class template partial specialization 'detector<Default, void_t<Op<Args...>>, Op, Args...>'
+// [with Default = nlohmann::detail::nonesuch, Op = get_template_function, Args = <const nlohmann::ordered_json&, nlohmann::ordered_json>]
+// @11: note: in instantiation of template class 'nlohmann::detail::detector<
+// nlohmann::detail::nonesuch, void, get_template_function, const nlohmann::ordered_json &, const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>>*>'
+// requested here
+// using is_detected =
+// ^
+// @12: note: during template argument deduction for class template partial specialization 'detector<Default, void_t<Op<Args...>>, Op, Args...>'
+// [with Default = nlohmann::detail::nonesuch, Op = get_template_function
+//     , Args = <const nlohmann::ordered_json &, const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *>]
 template<template<class...> class Op, class... Args>
-using is_detected = typename detector<nonesuch, void, Op, Args...>::value_t;
+using is_detected =
+    typename detector<nonesuch, void, Op, Args...>::value_t;
 
+// @19: note: in instantiation of template class 'nlohmann::detail::detector<
+// nlohmann::detail::nonesuch, void, from_json_function, nlohmann::adl_serializer<const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *, void>, const nlohmann::ordered_json &, const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *&>'
+// requested here
+// using detected_t = typename detector<nonesuch, void, Op, Args...>::type;
+// ^
+// @20: note: during template argument deduction for class template partial specialization 'detector<
+// Default, void_t<Op<Args...>>, Op, Args...>'
+// [with Default = nlohmann::detail::nonesuch, Op = from_json_function
+//     , Args = <nlohmann::adl_serializer<const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *, void>, const nlohmann::ordered_json &, const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *&>]
 template<template<class...> class Op, class... Args>
 using detected_t = typename detector<nonesuch, void, Op, Args...>::type;
 
+// @18: note: in instantiation of template type alias 'detected_t' requested here
+// using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
+// ^
 template<class Expected, template<class...> class Op, class... Args>
 using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
 
@@ -190,9 +228,25 @@ template<typename> struct is_basic_json : std::false_type {};
 NLOHMANN_BASIC_JSON_TPL_DECLARATION
 struct is_basic_json<NLOHMANN_BASIC_JSON_TPL> : std::true_type {};
 
+// @22: note: while substituting deduced template arguments into function template 'from_json'
+// [with BasicJsonType = const nlohmann::ordered_json &, ValueType = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *]
+// using from_json_function = decltype(T::from_json(std::declval<Args>()...));
+//                                     ^
 template<typename T, typename... Args>
 using from_json_function = decltype(T::from_json(std::declval<Args>()...));
 
+// @6: note: while substituting deduced template arguments into function template 'get'
+// [with ValueTypeCV = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>>*
+//     , ValueType = (no value)
+//     , $2 = (no value)]
+// using get_template_function = decltype(std::declval<T>().template get<U>());
+//                                                                   ^
+// @14: note: while substituting deduced template arguments into function template 'get'
+// [with ValueTypeCV = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *
+//     , ValueType = (no value)
+//     , $2 = (no value)]
+// using get_template_function = decltype(std::declval<T>().template get<U>());
+//                                                                   ^
 template<typename T, typename U>
 using get_template_function = decltype(std::declval<T>().template get<U>());
 
@@ -210,6 +264,10 @@ struct has_from_json < BasicJsonType, T,
     using serializer = typename BasicJsonType::template json_serializer<T, void>;
 
     static constexpr bool value =
+    // @17: note: in instantiation of template type alias 'is_detected_exact'
+    // requested here
+    //         is_detected_exact<void, from_json_function, serializer,
+    //         ^
         is_detected_exact<void, from_json_function, serializer,
         const BasicJsonType&, T&>::value;
 };
@@ -238,6 +296,10 @@ namespace detail
 
 struct from_json_fn
 {
+    // @24: note: in instantiation of template class 'std::pair<const std::string, nlohmann::ordered_json>'
+    // requested here
+    //     -> decltype(from_json(j, val), void())
+    //                 ^
     template<typename BasicJsonType, typename T>
     auto operator()(const BasicJsonType& j, T& val) const
     noexcept(noexcept(from_json(j, val)))
@@ -259,6 +321,11 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
 template<typename, typename>
 struct adl_serializer
 {
+    // @23: note: while substituting deduced template arguments into function template 'operator()'
+    // [with BasicJsonType = nlohmann::ordered_json
+    //     , T = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *]
+    //     -> decltype(::nlohmann::from_json(std::forward<BasicJsonType>(j), val), void())
+    //                 ^
     template<typename BasicJsonType, typename ValueType>
     static auto from_json(BasicJsonType&& j, ValueType& val) noexcept(
         noexcept(::nlohmann::from_json(std::forward<BasicJsonType>(j), val)))
@@ -348,8 +415,18 @@ class basic_json
     template < typename ValueTypeCV, typename ValueType = detail::uncvref_t<ValueTypeCV>,
                detail::enable_if_t <
                    !detail::is_basic_json<ValueType>::value &&
+    // @16: note: in instantiation of static data member 'nlohmann::detail::has_from_json<
+    // nlohmann::ordered_json, const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *, void>::value'
+    // requested here
+    //                    detail::has_from_json<basic_json_t, ValueType>::value,
+    //                                                                    ^
                    detail::has_from_json<basic_json_t, ValueType>::value,
                    int > = 0 >
+    // @15: note: while substituting prior template arguments into non-type template parameter
+    // [with ValueTypeCV = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *
+    //     , ValueType = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>> *]
+    //     ValueType get() const noexcept(noexcept(
+    //               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ValueType get() const noexcept(noexcept(
                                        JSONSerializer<ValueType>::from_json(std::declval<const basic_json_t&>(), std::declval<ValueType&>())))
     {
@@ -364,11 +441,22 @@ class basic_json
     template < typename PointerType, typename std::enable_if <
                    std::is_pointer<PointerType>::value&&
                    std::is_const<typename std::remove_pointer<PointerType>::type>::value, int >::type = 0 >
-    constexpr auto get_ptr() const noexcept -> decltype(std::declval<const basic_json_t&>().get_impl_ptr(std::declval<PointerType>()))
+    constexpr auto get_ptr() const noexcept
+        // @8: note: while substituting deduced template arguments into function template 'operator type-parameter-0-0'
+        // [with ValueType = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>>*
+        //     , $1 = (no value)]
+        //      -> decltype(std::declval<const basic_json_t&>().get_impl_ptr(std::declval<PointerType>()))
+        //                                                                   ^
+        -> decltype(std::declval<const basic_json_t&>().get_impl_ptr(std::declval<PointerType>()))
     {
         return static_cast<const object_t*>(nullptr);
     }
 
+    // @7: note: while substituting prior template arguments into non-type template parameter
+    // [with ValueTypeCV = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>>*
+    //     , ValueType = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>>*]
+    //  ValueType get() const noexcept(noexcept(
+    //            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     template<typename PointerType, typename std::enable_if<
                  std::is_pointer<PointerType>::value, int>::type = 0>
     constexpr auto get() const noexcept -> decltype(std::declval<const basic_json_t&>().template get_ptr<PointerType>())
@@ -382,8 +470,22 @@ class basic_json
 #if defined(JSON_HAS_CPP_17) && (defined(__GNUC__) || (defined(_MSC_VER) && _MSC_VER >= 1910 && _MSC_VER <= 1914))
                    && !std::is_same<ValueType, typename std::string_view>::value
 #endif
+    // @2: note: in instantiation of template type alias 'is_detected' requested here
+    // && detail::is_detected<detail::get_template_function, const basic_json_t&, ValueType>::value
+    //            ^
+    // @10: note: in instantiation of template type alias 'is_detected' requested here
+    // && detail::is_detected<detail::get_template_function, const basic_json_t&, ValueType>::value
+    //            ^
                    && detail::is_detected<detail::get_template_function, const basic_json_t&, ValueType>::value
                    , int >::type = 0 >
+    // @1: note: while substituting prior template arguments into non-type template parameter
+    // [with ValueType = nlohmann::ordered_json]
+    //     JSON_EXPLICIT operator ValueType() const
+    //                   ^~~~~~~~~~~~~~~~~~~~~~~~~~
+    // @9: note: while substituting prior template arguments into non-type template parameter
+    // [with ValueType = const nlohmann::ordered_map<std::string, nlohmann::ordered_json, std::less<void>, std::allocator<std::pair<const std::string, nlohmann::ordered_json>>>*]
+    //     JSON_EXPLICIT operator ValueType() const
+    //                   ^~~~~~~~~~~~~~~~~~~~~~~~~~
     JSON_EXPLICIT operator ValueType() const
     {
         return ValueType();
@@ -414,3 +516,23 @@ class basic_json
 #undef NLOHMANN_BASIC_JSON_TPL_DECLARATION
 #undef NLOHMANN_BASIC_JSON_TPL
 #undef JSON_EXPLICIT
+
+
+
+
+
+using J = nlohmann::ordered_json;
+
+#if USING_MAGIC
+using magic = decltype((std::declval<J&>() = std::declval<const J&>()));
+#endif
+
+#if USING_MAGIC_2
+constexpr bool magic_2 = std::is_copy_constructible<J>::value;
+#endif
+
+constexpr bool foo = std::is_copy_assignable<J>::value;
+
+int main()
+{
+}
